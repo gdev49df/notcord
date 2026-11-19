@@ -15,7 +15,8 @@
   --night:#e7f1f6;--deep:#f4f9fb;--surface:#ffffff;--raise:#eaf3f7;--line:#0a172214;
   --text:#0d2230;--muted:#5d7686;--glass:#ffffffb8;--glass-2:#ffffffd9;--bubble:#e6eff4;
   --sky-bg:radial-gradient(1200px 700px at 12% -10%,#bfe8f4 0,transparent 60%),radial-gradient(900px 600px at 100% 110%,#cfe6f1 0,transparent 55%),linear-gradient(#e7f1f6,#dcebf2);
-  --sun:radial-gradient(circle,#ffd36bcc 0,#ffd36b66 28%,transparent 66%)
+  --sun:radial-gradient(circle,#ffd36bcc 0,#ffd36b66 28%,transparent 66%);
+  --wm-end:#0e93b2
 }}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;background:var(--night);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
@@ -31,7 +32,7 @@ h1,h3{letter-spacing:-.02em;line-height:1.15}
 .sun{position:absolute;right:-8vmax;top:-12vmax;width:42vmax;height:42vmax;background:var(--sun);border-radius:50%;filter:blur(6px);opacity:.75}
 
 /* кнопки и поля */
-button{font:inherit;font-weight:600;cursor:pointer;border:0;border-radius:12px;background:var(--sky);color:var(--on-sky);padding:10px 18px;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .35s var(--spring),background .15s,filter .15s}
+button{font:inherit;font-weight:600;text-transform:none;cursor:pointer;border:0;border-radius:12px;background:var(--sky);color:var(--on-sky);padding:10px 18px;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .35s var(--spring),background .15s,filter .15s}
 button:hover{filter:brightness(1.08)}
 button:active{transform:scale(.95);transition-duration:.08s}
 button:focus-visible,a:focus-visible,.ic:focus-visible,.item:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
@@ -47,7 +48,7 @@ a{color:var(--sky);text-decoration:none}a:hover{text-decoration:underline}
 .auth{position:fixed;inset:0;z-index:1;display:grid;grid-template-columns:1.2fr 1fr;align-items:center;gap:40px;padding:6vw}
 .auth-hero{max-width:560px}
 .wordmark{font-size:clamp(56px,9vw,120px);font-weight:800;letter-spacing:-.06em;line-height:.9}
-.wordmark{background:linear-gradient(120deg,var(--text) 40%,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.wordmark{background:linear-gradient(120deg,var(--text) 45%,var(--wm-end,var(--gold)));-webkit-background-clip:text;background-clip:text;color:transparent}
 .auth-hero p{font-size:19px;color:var(--muted);max-width:30ch;margin:18px 0 0}
 .auth-card{background:var(--glass-2);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);border:1px solid var(--line);border-top-color:#ffffff30;padding:30px;border-radius:26px;display:flex;flex-direction:column;gap:12px;box-shadow:0 30px 80px #00000055;width:min(400px,100%);justify-self:center;animation:rise .6s var(--spring)}
 .auth-card h1{margin:0 0 6px;font-size:26px}
@@ -65,7 +66,7 @@ a{color:var(--sky);text-decoration:none}a:hover{text-decoration:underline}
 .rail .ic:hover{border-radius:17px;transform:translateY(-1px)}
 .rail .ic:active{transform:scale(.92);transition-duration:.08s}
 .rail .ic.on{border-radius:16px;background:var(--sky);color:var(--on-sky)}
-.rail .ic.on::before{content:"";position:absolute;left:-14px;top:14px;width:4px;height:20px;border-radius:0 4px 4px 0;background:var(--gold)}
+.rail .ic.on::before{content:"";position:absolute;left:-11px;top:14px;width:4px;height:20px;border-radius:0 4px 4px 0;background:var(--gold)}
 .rail .add{background:transparent;border:1.5px dashed var(--muted);color:var(--muted)}.rail .add:hover{border-color:var(--sky);color:var(--sky)}
 .rail .sep{width:28px;height:2px;border-radius:2px;background:var(--line);flex:none}
 
