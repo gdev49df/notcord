@@ -1,7 +1,7 @@
 // notcord — фронтенд (чистый js)
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const colorOf = (name) => `hsl(${[...name].reduce((a, c) => a + c.charCodeAt(0), 0) * 37 % 360} 55% 45%)`;
+const colorOf = (name) => `hsl(0 0% ${24 + [...name].reduce((a, c) => a + c.charCodeAt(0), 0) * 7 % 20}%)`;
 const avatar = (name, size = 32) =>
   `<div class="avatar" style="background:${colorOf(name)};width:${size}px;height:${size}px;font-size:${size * 0.45}px">${esc(name[0]?.toUpperCase())}</div>`;
 const fmtTime = (t) => new Date(t).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -61,7 +61,15 @@ function showAuth() {
   $('#app').classList.add('hidden');
   $('#auth').classList.remove('hidden');
 }
+$('#a-eye').onclick = () => {
+  const inp = $('#a-pass'), show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  $('#a-eye').setAttribute('aria-pressed', show);
+  $('#a-eye').setAttribute('aria-label', show ? 'скрыть пароль' : 'показать пароль');
+  inp.focus();
+};
 $('#a-toggle').onclick = (e) => {
+  $('#a-pass').autocomplete = regMode ? 'current-password' : 'new-password';
   e.preventDefault();
   regMode = !regMode;
   $('#a-submit').textContent = regMode ? 'создать аккаунт' : 'войти';
@@ -281,7 +289,7 @@ function renderMembers() {
   const { members, server } = S.server;
   const owner = server.owner_id === S.user.id;
   $('#members').innerHTML = `<div class="cat">участники — ${members.length}</div>` + members.map((m) =>
-    `<div class="item" data-u="${m.id}">${avatar(m.username, 24)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(m.username)}${m.id === server.owner_id ? ' 👑' : ''}</span>${owner && m.id !== S.user.id ? `<button class="icon-btn" data-kick="${m.id}" title="исключить" aria-label="исключить">${ic('close')}</button>` : ''}</div>`).join('');
+    `<div class="item" data-u="${m.id}">${avatar(m.username, 24)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(m.username)}${m.id === server.owner_id ? ' <span class="muted" style="font-size:12px">· владелец</span>' : ''}</span>${owner && m.id !== S.user.id ? `<button class="icon-btn" data-kick="${m.id}" title="исключить" aria-label="исключить">${ic('close')}</button>` : ''}</div>`).join('');
   $('#members').onclick = async (e) => {
     const k = e.target.closest('[data-kick]');
     if (k && confirm('исключить участника?')) { await api(`/servers/${server.id}/kick/${k.dataset.kick}`, { method: 'POST' }); openServer(server.id, S.channel?.id); }
@@ -303,6 +311,7 @@ function openChannel(ch) {
   $('#main-head').onclick = burgerClick;
   const v = $('#view');
   v.onclick = null;
+  v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
   v.innerHTML = `<div class="msgs" id="msgs"></div><div class="typing" id="typing"></div><div id="pf"></div>
     <div class="composer"><button class="clip" id="clip" title="прикрепить файл" aria-label="прикрепить файл">${ic('plus')}</button>
     <textarea id="inp" rows="1" placeholder="написать в ${ch.type === 'dm' ? '@' : '#'}${esc(ch.name)}"></textarea><button id="send" aria-label="отправить">${ic('send')}</button></div>
@@ -359,7 +368,7 @@ function msgHtml(m, prev) {
   const canDel = mine || (S.server && S.server.server.owner_id === S.user.id);
   const when = fmtTime(m.created_at);
   const gutter = mine ? '' : `<div class="gutter">${cont ? '' : avatar(m.username, 36)}</div>`;
-  const name = mine || cont ? '' : `<div class="who" style="color:${colorOf(m.username)}">${esc(m.username)}</div>`;
+  const name = mine || cont ? '' : `<div class="who" style="color:var(--muted)">${esc(m.username)}</div>`;
   return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}" data-id="${m.id}" data-uid="${m.user_id}" data-t="${m.created_at}">${gutter}<div class="body">${name}
     ${linked ? `<div class="bubble" title="${when}">${linked}</div>` : ''}${att}</div>
     ${canDel ? `<button class="del" data-del="1" title="удалить" aria-label="удалить">${ic('close')}</button>` : ''}</div>`;

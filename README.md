@@ -1,4 +1,4 @@
-# notcord
+# Earth's Network
 
 дискорд-подобная соцсеть: серверы и каналы, личные сообщения, друзья, голосовые каналы (webrtc), файлы и картинки.
 стек: cloudflare workers + d1 + durable objects (websocket) + r2, фронт на чистом html/css/js.

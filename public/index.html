@@ -3,22 +3,33 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0a1722">
-<title>notcord</title>
+<meta name="theme-color" content="#000000">
+<title>Earth's Network</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="sky" aria-hidden="true"><i class="sun"></i></div>
+<div class="sky" aria-hidden="true">
+  <svg class="globe" viewBox="-320 -320 640 640" fill="none" stroke="currentColor" stroke-width="1">
+    <circle r="300"/><ellipse rx="300" ry="110" /><ellipse rx="300" ry="210" /><ellipse rx="110" ry="300"/><ellipse rx="210" ry="300"/><path d="M0 -300V300M-300 0H300"/>
+    <path d="M-262 -150H262M-262 150H262" />
+  </svg>
+</div>
 
 <div id="auth" class="auth hidden">
   <div class="auth-hero">
-    <div class="wordmark">notcord</div>
+    <div class="wordmark">Earth's<br>Network</div>
     <p>свои серверы, свои правила. пиши, звони и делись файлами без лишних ограничений.</p>
   </div>
   <form id="auth-form" class="auth-card">
     <h1 id="a-title">с возвращением</h1>
     <input id="a-user" placeholder="ник" autocomplete="username" required>
-    <input id="a-pass" type="password" placeholder="пароль" autocomplete="current-password" required>
+    <div class="pw">
+      <input id="a-pass" type="password" placeholder="пароль" autocomplete="current-password" required>
+      <button type="button" id="a-eye" class="eye" aria-label="показать пароль" aria-pressed="false">
+        <svg class="i eye-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="i eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.4 6.4C3.7 8.1 2 12 2 12s3.6 7 10 7c1.7 0 3.2-.4 4.5-1M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+      </button>
+    </div>
     <div id="a-err" class="error" role="alert"></div>
     <button type="submit" id="a-submit">войти</button>
     <a href="#" id="a-toggle" class="link">нет аккаунта? зарегистрироваться</a>
