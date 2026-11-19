@@ -6,6 +6,13 @@
 <meta name="theme-color" content="#000000">
 <title>Earth's Network</title>
 <link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Earth's Network — соцсеть: серверы, чаты, звонки и лента.">
 </head>
 <body>
 <div class="sky" aria-hidden="true">
@@ -32,6 +39,7 @@
     </div>
     <div id="a-err" class="error" role="alert"></div>
     <button type="submit" id="a-submit">войти</button>
+    <div id="tg-login" class="tg-login hidden"></div>
     <a href="#" id="a-toggle" class="link">нет аккаунта? зарегистрироваться</a>
   </form>
 </div>
@@ -45,6 +53,7 @@
     <div class="me-bar">
       <div class="avatar" id="me-avatar"></div>
       <div class="me-name" id="me-name"></div>
+      <button id="theme" class="icon-btn" title="тема" aria-label="сменить тему"></button>
       <button id="logout" class="icon-btn" title="выйти" aria-label="выйти"><svg class="i" viewBox="0 0 24 24"><path d="M9 4H5v16h4M15 8l4 4-4 4M19 12H9"/></svg></button>
     </div>
   </aside>
@@ -58,5 +67,9 @@
 <div id="modal" class="modal hidden"><div class="modal-card" id="modal-card"></div></div>
 <div id="audio-sink"></div>
 <script src="app.js"></script>
+<script src="feed.js"></script>
+<script src="extras.js"></script>
+<script src="clips.js"></script>
+<script src="start.js"></script>
 </body>
 </html>
