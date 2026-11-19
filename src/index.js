@@ -75,6 +75,7 @@ export default {
 };
 
 async function handleFile(env, key) {
+  if (!env.FILES) return new Response('files disabled', { status: 404 });
   const obj = await env.FILES.get(decodeURIComponent(key));
   if (!obj) return new Response('not found', { status: 404 });
   const h = new Headers();
@@ -252,6 +253,7 @@ async function handleApi(req, env, url) {
 
   // --- файлы
   if (p === '/upload' && m === 'POST') {
+    if (!env.FILES) return err('загрузка файлов пока отключена', 501);
     const len = Number(req.headers.get('content-length') || 0);
     if (len > MAX_FILE) return err('файл больше 25 мб', 413);
     const name = decodeURIComponent(req.headers.get('x-filename') || 'file').slice(0, 120);

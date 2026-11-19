@@ -10,9 +10,6 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "notcord", "database_id": "becd0360-20c6-4de0-bb37-7f7be3bc1f43" }
   ],
-  "r2_buckets": [
-    { "binding": "FILES", "bucket_name": "notcord-files" }
-  ],
   "durable_objects": {
     "bindings": [{ "name": "ROOM", "class_name": "Room" }]
   },
