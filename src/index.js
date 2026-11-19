@@ -1,5 +1,7 @@
 // notcord — worker: api + websocket (durable objects) + файлы (r2)
 
+import { handlePublic, handleSocial, enrichMessages, notify, mentionedUsers, isAdmin, isOnline } from './social.js';
+
 const enc = new TextEncoder();
 const MAX_FILE = 25 * 1024 * 1024;
 
@@ -25,7 +27,7 @@ async function authUser(req, env, url) {
   if (!token && url) token = url.searchParams.get('token');
   if (!token) return null;
   return await env.DB.prepare(
-    'SELECT u.id, u.username FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?'
+    'SELECT u.id, u.username, u.avatar_key FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND u.banned_at IS NULL'
   ).bind(token).first();
 }
 
@@ -50,8 +52,10 @@ async function channelAccess(env, userId, channelId) {
   return m ? ch : null;
 }
 
-const MSG_SELECT = `SELECT m.id, m.channel_id, m.user_id, u.username, m.content,
-  m.att_key, m.att_name, m.att_type, m.created_at
+const MSG_SELECT = `SELECT m.id, m.channel_id, m.user_id, u.username, u.avatar_key, m.content,
+  m.att_key, m.att_name, m.att_type, m.created_at, m.reply_to, m.edited_at, m.pinned,
+  (SELECT substr(r.content, 1, 120) FROM messages r WHERE r.id = m.reply_to) AS reply_content,
+  (SELECT ru.username FROM messages r JOIN users ru ON ru.id = r.user_id WHERE r.id = m.reply_to) AS reply_name
   FROM messages m JOIN users u ON u.id = m.user_id`;
 
 async function broadcast(env, room, payload) {
@@ -59,19 +63,6 @@ async function broadcast(env, room, payload) {
   await stub.fetch('https://room/broadcast', { method: 'POST', body: JSON.stringify(payload) });
 }
 
-
-// ---- лента
-const POST_SELECT = `SELECT p.id, p.user_id, u.username, p.parent_id, p.content, p.created_at,
-  (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
-  (SELECT COUNT(*) FROM posts r WHERE r.parent_id = p.id) AS replies,
-  EXISTS(SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.user_id = ?) AS liked
-  FROM posts p JOIN users u ON u.id = p.user_id`;
-
-async function getPost(env, id, me) {
-  const r = await env.DB.prepare(`${POST_SELECT} WHERE p.id = ?`).bind(me, id).first();
-  return r ? { ...r, liked: !!r.liked } : null;
-}
-const fixPosts = (rows) => rows.map((r) => ({ ...r, liked: !!r.liked }));
 
 export default {
   async fetch(req, env) {
@@ -122,6 +113,9 @@ async function handleApi(req, env, url) {
   const m = req.method;
   const now = Date.now();
 
+  const pub = await handlePublic({ req, env, url, p, m, now, json, err, rand, hashPass, newSession });
+  if (pub) return pub;
+
   // --- регистрация / вход
   if (p === '/register' && m === 'POST') {
     const { username, password } = await req.json();
@@ -142,13 +136,14 @@ async function handleApi(req, env, url) {
     const { username, password } = await req.json();
     const u = await env.DB.prepare('SELECT * FROM users WHERE username = ?').bind(username || '').first();
     if (!u || (await hashPass(password || '', u.pass_salt)) !== u.pass_hash) return err('неверный ник или пароль', 401);
-    return json({ token: await newSession(env, u.id), user: { id: u.id, username: u.username } });
+    if (u.banned_at) return err('аккаунт заблокирован', 403);
+    return json({ token: await newSession(env, u.id), user: { id: u.id, username: u.username, avatar_key: u.avatar_key } });
   }
 
   const me = await authUser(req, env);
   if (!me) return err('не авторизован', 401);
 
-  if (p === '/me') return json({ user: me });
+  if (p === '/me') return json({ user: { ...me, is_admin: isAdmin(env, me) } });
   if (p === '/logout' && m === 'POST') {
     const t = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
     await env.DB.prepare('DELETE FROM sessions WHERE token=?').bind(t).run();
@@ -158,7 +153,7 @@ async function handleApi(req, env, url) {
   // --- серверы
   if (p === '/servers' && m === 'GET') {
     const { results } = await env.DB.prepare(
-      'SELECT s.id, s.name, s.owner_id, s.invite FROM servers s JOIN members mm ON mm.server_id = s.id WHERE mm.user_id = ? ORDER BY mm.joined_at'
+      'SELECT s.id, s.name, s.owner_id, s.invite, s.is_public, s.description FROM servers s JOIN members mm ON mm.server_id = s.id WHERE mm.user_id = ? ORDER BY mm.joined_at'
     ).bind(me.id).all();
     return json({ servers: results });
   }
@@ -189,18 +184,20 @@ async function handleApi(req, env, url) {
     const sid = Number(mt[1]);
     const mem = await env.DB.prepare('SELECT 1 x FROM members WHERE server_id=? AND user_id=?').bind(sid, me.id).first();
     if (!mem) return err('нет доступа', 403);
-    const s = await env.DB.prepare('SELECT id, name, owner_id, invite FROM servers WHERE id=?').bind(sid).first();
+    const s = await env.DB.prepare('SELECT id, name, owner_id, invite, is_public, description FROM servers WHERE id=?').bind(sid).first();
     if (m === 'GET') {
       const [chs, mems] = await Promise.all([
         env.DB.prepare('SELECT id, name, type FROM channels WHERE server_id=? ORDER BY id').bind(sid).all(),
-        env.DB.prepare('SELECT u.id, u.username FROM members mm JOIN users u ON u.id=mm.user_id WHERE mm.server_id=? ORDER BY u.username').bind(sid).all(),
+        env.DB.prepare('SELECT u.id, u.username, u.avatar_key, u.last_seen FROM members mm JOIN users u ON u.id=mm.user_id WHERE mm.server_id=? ORDER BY u.username').bind(sid).all(),
       ]);
-      return json({ server: s, channels: chs.results, members: mems.results });
+      return json({ server: s, channels: chs.results, members: mems.results.map(({ last_seen, ...u }) => ({ ...u, online: isOnline(last_seen) })) });
     }
     if (m === 'DELETE') {
       if (s.owner_id === me.id) {
         await env.DB.batch([
+          env.DB.prepare('DELETE FROM message_reactions WHERE message_id IN (SELECT id FROM messages WHERE channel_id IN (SELECT id FROM channels WHERE server_id=?))').bind(sid),
           env.DB.prepare('DELETE FROM messages WHERE channel_id IN (SELECT id FROM channels WHERE server_id=?)').bind(sid),
+          env.DB.prepare('UPDATE posts SET server_id = NULL WHERE server_id=?').bind(sid),
           env.DB.prepare('DELETE FROM channels WHERE server_id=?').bind(sid),
           env.DB.prepare('DELETE FROM members WHERE server_id=?').bind(sid),
           env.DB.prepare('DELETE FROM servers WHERE id=?').bind(sid),
@@ -240,16 +237,25 @@ async function handleApi(req, env, url) {
       const before = Number(url.searchParams.get('before')) || 9e15;
       const { results } = await env.DB.prepare(`${MSG_SELECT} WHERE m.channel_id=? AND m.id<? ORDER BY m.id DESC LIMIT 50`)
         .bind(cid, before).all();
-      return json({ messages: results.reverse() });
+      return json({ messages: await enrichMessages(env, results.reverse()) });
     }
     if (m === 'POST') {
       const b = await req.json();
       const content = (b.content || '').slice(0, 4000);
       if (!content.trim() && !b.att_key) return err('пустое сообщение');
+      let replyTo = null;
+      if (b.reply_to) {
+        const rm = await env.DB.prepare('SELECT id FROM messages WHERE id=? AND channel_id=?').bind(Number(b.reply_to), cid).first();
+        replyTo = rm?.id || null;
+      }
       const r = await env.DB.prepare(
-        'INSERT INTO messages (channel_id, user_id, content, att_key, att_name, att_type, created_at) VALUES (?,?,?,?,?,?,?)'
-      ).bind(cid, me.id, content, b.att_key || null, b.att_name || null, b.att_type || null, now).run();
+        'INSERT INTO messages (channel_id, user_id, content, att_key, att_name, att_type, created_at, reply_to) VALUES (?,?,?,?,?,?,?,?)'
+      ).bind(cid, me.id, content, b.att_key || null, b.att_name || null, b.att_type || null, now, replyTo).run();
       const msg = await env.DB.prepare(`${MSG_SELECT} WHERE m.id=?`).bind(r.meta.last_row_id).first();
+      msg.reactions = [];
+      for (const u of await mentionedUsers(env, content)) {
+        if (u.id !== me.id && (await channelAccess(env, u.id, cid))) await notify(env, u.id, 'mention_msg', me.id, msg.id, cid);
+      }
       await broadcast(env, `text:${cid}`, { type: 'message', message: msg });
       return json({ message: msg });
     }
@@ -260,7 +266,11 @@ async function handleApi(req, env, url) {
     const ch = await channelAccess(env, me.id, msg.channel_id);
     const srv = ch?.server_id ? await env.DB.prepare('SELECT owner_id FROM servers WHERE id=?').bind(ch.server_id).first() : null;
     if (!ch || (msg.user_id !== me.id && srv?.owner_id !== me.id)) return err('нельзя', 403);
-    await env.DB.prepare('DELETE FROM messages WHERE id=?').bind(msg.id).run();
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM message_reactions WHERE message_id=?').bind(msg.id),
+      env.DB.prepare("DELETE FROM notifications WHERE type='mention_msg' AND post_id=?").bind(msg.id),
+      env.DB.prepare('DELETE FROM messages WHERE id=?').bind(msg.id),
+    ]);
     await broadcast(env, `text:${msg.channel_id}`, { type: 'delete', id: msg.id });
     return json({ ok: true });
   }
@@ -280,7 +290,8 @@ async function handleApi(req, env, url) {
   // --- друзья
   if (p === '/friends' && m === 'GET') {
     const { results } = await env.DB.prepare(
-      `SELECT f.status, f.user_a, f.user_b, ua.username AS name_a, ub.username AS name_b
+      `SELECT f.status, f.user_a, f.user_b, ua.username AS name_a, ub.username AS name_b,
+        ua.avatar_key AS av_a, ub.avatar_key AS av_b, ua.last_seen AS ls_a, ub.last_seen AS ls_b
        FROM friends f JOIN users ua ON ua.id=f.user_a JOIN users ub ON ub.id=f.user_b
        WHERE f.user_a=? OR f.user_b=?`
     ).bind(me.id, me.id).all();
@@ -289,6 +300,8 @@ async function handleApi(req, env, url) {
       return {
         id: mine ? r.user_b : r.user_a,
         username: mine ? r.name_b : r.name_a,
+        avatar_key: mine ? r.av_b : r.av_a,
+        online: isOnline(mine ? r.ls_b : r.ls_a),
         status: r.status === 'accepted' ? 'friend' : mine ? 'outgoing' : 'incoming',
       };
     });
@@ -321,13 +334,13 @@ async function handleApi(req, env, url) {
   // --- лс
   if (p === '/dms' && m === 'GET') {
     const { results } = await env.DB.prepare(
-      `SELECT c.id, u.id AS user_id, u.username FROM dm_members me
+      `SELECT c.id, u.id AS user_id, u.username, u.avatar_key, u.last_seen FROM dm_members me
        JOIN channels c ON c.id = me.channel_id
        JOIN dm_members o ON o.channel_id = c.id AND o.user_id != me.user_id
        JOIN users u ON u.id = o.user_id
        WHERE me.user_id = ? ORDER BY c.id DESC`
     ).bind(me.id).all();
-    return json({ dms: results });
+    return json({ dms: results.map(({ last_seen, ...d }) => ({ ...d, online: isOnline(last_seen) })) });
   }
   if (p === '/dms' && m === 'POST') {
     const { userId } = await req.json();
@@ -348,80 +361,8 @@ async function handleApi(req, env, url) {
   }
 
 
-  // --- лента
-  if (p === '/feed' && m === 'GET') {
-    const before = Number(url.searchParams.get('before')) || 9e15;
-    const following = url.searchParams.get('tab') === 'following';
-    const where = following
-      ? 'p.parent_id IS NULL AND p.id < ? AND (p.user_id = ? OR p.user_id IN (SELECT followee_id FROM follows WHERE follower_id = ?))'
-      : 'p.parent_id IS NULL AND p.id < ?';
-    const binds = following ? [me.id, before, me.id, me.id] : [me.id, before];
-    const { results } = await env.DB.prepare(`${POST_SELECT} WHERE ${where} ORDER BY p.id DESC LIMIT 30`).bind(...binds).all();
-    return json({ posts: fixPosts(results) });
-  }
-  if (p === '/posts' && m === 'POST') {
-    const b = await req.json();
-    const content = (b.content || '').trim().slice(0, 1000);
-    if (!content) return err('пустой пост');
-    let parent = null;
-    if (b.parent_id) {
-      const pp = await env.DB.prepare('SELECT id, parent_id FROM posts WHERE id=?').bind(Number(b.parent_id)).first();
-      if (!pp) return err('пост не найден', 404);
-      parent = pp.parent_id || pp.id; // ответы всегда в корневой пост
-    }
-    const r = await env.DB.prepare('INSERT INTO posts (user_id, parent_id, content, created_at) VALUES (?,?,?,?)')
-      .bind(me.id, parent, content, now).run();
-    return json({ post: await getPost(env, r.meta.last_row_id, me.id) });
-  }
-  if ((mt = p.match(/^\/posts\/(\d+)$/))) {
-    const id = Number(mt[1]);
-    if (m === 'GET') {
-      const post = await getPost(env, id, me.id);
-      if (!post) return err('пост не найден', 404);
-      const { results } = await env.DB.prepare(`${POST_SELECT} WHERE p.parent_id = ? ORDER BY p.id ASC LIMIT 200`).bind(me.id, id).all();
-      return json({ post, replies: fixPosts(results) });
-    }
-    if (m === 'DELETE') {
-      const post = await env.DB.prepare('SELECT user_id FROM posts WHERE id=?').bind(id).first();
-      if (!post || post.user_id !== me.id) return err('нельзя', 403);
-      await env.DB.batch([
-        env.DB.prepare('DELETE FROM post_likes WHERE post_id=? OR post_id IN (SELECT id FROM posts WHERE parent_id=?)').bind(id, id),
-        env.DB.prepare('DELETE FROM posts WHERE parent_id=?').bind(id),
-        env.DB.prepare('DELETE FROM posts WHERE id=?').bind(id),
-      ]);
-      return json({ ok: true });
-    }
-  }
-  if ((mt = p.match(/^\/posts\/(\d+)\/like$/)) && m === 'POST') {
-    const id = Number(mt[1]);
-    if (!(await env.DB.prepare('SELECT 1 x FROM posts WHERE id=?').bind(id).first())) return err('пост не найден', 404);
-    const had = await env.DB.prepare('SELECT 1 x FROM post_likes WHERE post_id=? AND user_id=?').bind(id, me.id).first();
-    if (had) await env.DB.prepare('DELETE FROM post_likes WHERE post_id=? AND user_id=?').bind(id, me.id).run();
-    else await env.DB.prepare('INSERT INTO post_likes (post_id, user_id) VALUES (?,?)').bind(id, me.id).run();
-    const c = await env.DB.prepare('SELECT COUNT(*) n FROM post_likes WHERE post_id=?').bind(id).first();
-    return json({ liked: !had, likes: c.n });
-  }
-  if ((mt = p.match(/^\/users\/([^/]+)$/)) && m === 'GET') {
-    const u = await env.DB.prepare('SELECT id, username, created_at FROM users WHERE username = ?').bind(decodeURIComponent(mt[1])).first();
-    if (!u) return err('пользователь не найден', 404);
-    const [fr, fg, isf, posts] = await Promise.all([
-      env.DB.prepare('SELECT COUNT(*) n FROM follows WHERE followee_id=?').bind(u.id).first(),
-      env.DB.prepare('SELECT COUNT(*) n FROM follows WHERE follower_id=?').bind(u.id).first(),
-      env.DB.prepare('SELECT 1 x FROM follows WHERE follower_id=? AND followee_id=?').bind(me.id, u.id).first(),
-      env.DB.prepare(`${POST_SELECT} WHERE p.user_id = ? AND p.parent_id IS NULL ORDER BY p.id DESC LIMIT 30`).bind(me.id, u.id).all(),
-    ]);
-    return json({ user: u, followers: fr.n, following: fg.n, is_following: !!isf, is_me: u.id === me.id, posts: fixPosts(posts.results) });
-  }
-  if ((mt = p.match(/^\/users\/(\d+)\/follow$/)) && m === 'POST') {
-    const id = Number(mt[1]);
-    if (id === me.id) return err('нельзя подписаться на себя');
-    if (!(await env.DB.prepare('SELECT 1 x FROM users WHERE id=?').bind(id).first())) return err('пользователь не найден', 404);
-    const had = await env.DB.prepare('SELECT 1 x FROM follows WHERE follower_id=? AND followee_id=?').bind(me.id, id).first();
-    if (had) await env.DB.prepare('DELETE FROM follows WHERE follower_id=? AND followee_id=?').bind(me.id, id).run();
-    else await env.DB.prepare('INSERT INTO follows (follower_id, followee_id, created_at) VALUES (?,?,?)').bind(me.id, id, now).run();
-    const c = await env.DB.prepare('SELECT COUNT(*) n FROM follows WHERE followee_id=?').bind(id).first();
-    return json({ following: !had, followers: c.n });
-  }
+  const social = await handleSocial({ req, env, url, me, p, m, now, json, err, broadcast, channelAccess, MSG_SELECT });
+  if (social) return social;
 
   return err('не найдено', 404);
 }

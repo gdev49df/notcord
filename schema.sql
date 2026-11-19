@@ -1,10 +1,20 @@
+-- earth's network: полная схема для чистой базы
+-- для уже развёрнутой базы используй migrations/0002_social.sql
+
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT NOT NULL UNIQUE COLLATE NOCASE,
   pass_hash TEXT NOT NULL,
   pass_salt TEXT NOT NULL,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  bio TEXT,
+  avatar_key TEXT,
+  last_seen INTEGER DEFAULT 0,
+  banned_at INTEGER,
+  tg_id TEXT,
+  pinned_post_id INTEGER
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_tg ON users(tg_id) WHERE tg_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL,
@@ -15,7 +25,9 @@ CREATE TABLE IF NOT EXISTS servers (
   name TEXT NOT NULL,
   owner_id INTEGER NOT NULL,
   invite TEXT NOT NULL UNIQUE,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  is_public INTEGER DEFAULT 0,
+  description TEXT
 );
 CREATE TABLE IF NOT EXISTS members (
   server_id INTEGER NOT NULL,
@@ -47,7 +59,10 @@ CREATE TABLE IF NOT EXISTS messages (
   att_key TEXT,
   att_name TEXT,
   att_type TEXT,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  reply_to INTEGER,
+  edited_at INTEGER,
+  pinned INTEGER DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel_id, id);
 -- status: pending (from -> to) | accepted
@@ -60,13 +75,32 @@ CREATE TABLE IF NOT EXISTS friends (
 );
 CREATE INDEX IF NOT EXISTS idx_friends_b ON friends(user_b);
 
--- лента (как threads): посты, ответы (parent_id), лайки, подписки
+-- чат: реакции и прочитанное
+CREATE TABLE IF NOT EXISTS message_reactions (
+  message_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  emoji TEXT NOT NULL,
+  PRIMARY KEY (message_id, user_id, emoji)
+);
+CREATE TABLE IF NOT EXISTS channel_reads (
+  user_id INTEGER NOT NULL,
+  channel_id INTEGER NOT NULL,
+  last_id INTEGER NOT NULL,
+  PRIMARY KEY (user_id, channel_id)
+);
+
+-- лента
 CREATE TABLE IF NOT EXISTS posts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
   parent_id INTEGER,
   content TEXT NOT NULL,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  att_key TEXT,
+  att_name TEXT,
+  att_type TEXT,
+  quote_id INTEGER,
+  server_id INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_posts_parent ON posts(parent_id, id);
 CREATE INDEX IF NOT EXISTS idx_posts_user ON posts(user_id, id);
@@ -82,3 +116,61 @@ CREATE TABLE IF NOT EXISTS follows (
   PRIMARY KEY (follower_id, followee_id)
 );
 CREATE INDEX IF NOT EXISTS idx_follows_followee ON follows(followee_id);
+CREATE TABLE IF NOT EXISTS post_tags (
+  post_id INTEGER NOT NULL,
+  tag TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (post_id, tag)
+);
+CREATE INDEX IF NOT EXISTS idx_tags_tag ON post_tags(tag, post_id);
+CREATE TABLE IF NOT EXISTS poll_options (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER NOT NULL,
+  text TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_poll_post ON poll_options(post_id);
+CREATE TABLE IF NOT EXISTS poll_votes (
+  post_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  option_id INTEGER NOT NULL,
+  PRIMARY KEY (post_id, user_id)
+);
+
+-- уведомления, истории, близкие друзья, жалобы
+-- type: like | reply | follow | mention | repost | quote | mention_msg
+CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  actor_id INTEGER NOT NULL,
+  post_id INTEGER,
+  channel_id INTEGER,
+  created_at INTEGER NOT NULL,
+  is_read INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, id);
+CREATE TABLE IF NOT EXISTS stories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  att_key TEXT,
+  att_type TEXT,
+  visibility TEXT NOT NULL DEFAULT 'all',
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_stories_time ON stories(created_at);
+CREATE TABLE IF NOT EXISTS close_friends (
+  user_id INTEGER NOT NULL,
+  friend_id INTEGER NOT NULL,
+  PRIMARY KEY (user_id, friend_id)
+);
+-- target_type: post | message | user ; status: open | done
+CREATE TABLE IF NOT EXISTS reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  reporter_id INTEGER NOT NULL,
+  target_type TEXT NOT NULL,
+  target_id INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open'
+);
