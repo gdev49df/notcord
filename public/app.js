@@ -212,7 +212,7 @@ function showFriends() {
     <div class="row">${avatar(f.username, 36)}<div class="grow"><b>${esc(f.username)}</b>${f.status === 'outgoing' ? '<div class="muted">запрос отправлен</div>' : ''}</div>
     ${f.status === 'friend' ? `<button data-dm="${f.id}">сообщение</button>` : ''}
     ${f.status === 'incoming' ? `<button data-acc="${f.id}">принять</button>` : ''}
-    <button class="ghost" data-del="${f.id}">✕</button></div>`).join('') : '<div class="empty">здесь пока пусто</div>'}</div>`;
+    <button class="ghost" data-del="${f.id}">✕</button></div>`).join('') : '<div class="empty"><div class="big">🫥</div>здесь пока пусто</div>'}</div>`;
   v.onclick = async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
@@ -233,7 +233,7 @@ async function openServer(id, channelId) {
   renderServerSide();
   renderMembers();
   if (target) openChannel(target);
-  else { $('#view').innerHTML = '<div class="empty">нет каналов</div>'; $('#main-head').innerHTML = burger(); }
+  else { $('#view').innerHTML = '<div class="empty"><div class="big">#</div>нет каналов</div>'; $('#main-head').innerHTML = burger(); }
 }
 
 function renderServerSide() {
@@ -326,7 +326,8 @@ async function sendMessage() {
   catch (e) { alert(e.message); inp.value = content; }
 }
 
-function msgHtml(m) {
+function msgHtml(m, prev) {
+  const cont = prev && prev.user_id === m.user_id && m.created_at - prev.created_at < 300000 && !prev.att_key;
   let att = '';
   if (m.att_key) {
     const url = '/files/' + m.att_key.split('/').map(encodeURIComponent).join('/');
@@ -337,15 +338,17 @@ function msgHtml(m) {
   }
   const linked = esc(m.content).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
   const canDel = m.user_id === S.user.id || (S.server && S.server.server.owner_id === S.user.id);
-  return `<div class="msg" data-id="${m.id}">${avatar(m.username, 40)}<div class="body"><span class="who" style="color:${colorOf(m.username)}">${esc(m.username)}</span><span class="time">${fmtTime(m.created_at)}</span>
-    <div class="txt">${linked}</div>${att}</div>${canDel ? '<button class="del" data-del="1">✕</button>' : ''}</div>`;
+  const head = cont ? `<div class="gutter"><span class="time">${new Date(m.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span></div>`
+    : `<div class="gutter">${avatar(m.username, 40)}</div>`;
+  const name = cont ? '' : `<div class="meta"><span class="who" style="color:${colorOf(m.username)}">${esc(m.username)}</span><span class="time">${fmtTime(m.created_at)}</span></div>`;
+  return `<div class="msg ${cont ? 'cont' : ''}" data-id="${m.id}" data-uid="${m.user_id}" data-t="${m.created_at}" data-att="${m.att_key ? 1 : 0}">${head}<div class="body">${name}${linked ? `<div class="txt">${linked}</div>` : ''}${att}</div>${canDel ? '<button class="del" data-del="1" title="удалить">✕</button>' : ''}</div>`;
 }
 
 async function loadMessages(cid) {
   const d = await api(`/channels/${cid}/messages`);
   if (S.channel?.id !== cid) return;
   const box = $('#msgs');
-  box.innerHTML = d.messages.length ? d.messages.map(msgHtml).join('') : '<div class="empty">тут пока тихо — напиши первым</div>';
+  box.innerHTML = d.messages.length ? d.messages.map((m, i) => msgHtml(m, d.messages[i - 1])).join('') : '<div class="empty"><div class="big">👋</div>тут пока тихо — напиши первым</div>';
   box.scrollTop = box.scrollHeight;
   box.onclick = async (e) => {
     const b = e.target.closest('[data-del]');
@@ -368,7 +371,9 @@ function connectWs(cid) {
     if (d.type === 'message') {
       const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
       if (box.querySelector('.empty')) box.innerHTML = '';
-      box.insertAdjacentHTML('beforeend', msgHtml(d.message));
+      const last = box.lastElementChild;
+      const prev = last?.dataset?.id ? { user_id: Number(last.dataset.uid), created_at: Number(last.dataset.t), att_key: last.dataset.att === '1' } : null;
+      box.insertAdjacentHTML('beforeend', msgHtml(d.message, prev));
       if (atBottom || d.message.user_id === S.user.id) box.scrollTop = box.scrollHeight;
     } else if (d.type === 'delete') {
       box.querySelector(`.msg[data-id="${d.id}"]`)?.remove();
