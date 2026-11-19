@@ -6,6 +6,23 @@ const avatar = (name, size = 32) =>
   `<div class="avatar" style="background:${colorOf(name)};width:${size}px;height:${size}px;font-size:${size * 0.45}px">${esc(name[0]?.toUpperCase())}</div>`;
 const fmtTime = (t) => new Date(t).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
+const ICONS = {
+  hash: '<path d="M5 9h14M4 15h14M10 4 8 20M16 4l-2 16"/>',
+  speaker: '<path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/>',
+  send: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  micoff: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M4 4l16 16"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  userplus: '<circle cx="10" cy="8" r="3.5"/><path d="M3.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/>',
+  more: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  friends: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 5a3.5 3.5 0 0 1 0 7M18 20a6 6 0 0 0-3-5"/>',
+  chat: '<path d="M5 6h14v9h-8l-4 4v-4H5z"/>',
+  file: '<path d="M7 3h7l4 4v14H7zM14 3v4h4"/>',
+};
+const ic = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+
 const S = {
   token: localStorage.getItem('nc_token'),
   user: null,
@@ -47,7 +64,8 @@ function showAuth() {
 $('#a-toggle').onclick = (e) => {
   e.preventDefault();
   regMode = !regMode;
-  $('#a-submit').textContent = regMode ? 'зарегистрироваться' : 'войти';
+  $('#a-submit').textContent = regMode ? 'создать аккаунт' : 'войти';
+  $('#a-title').textContent = regMode ? 'создай аккаунт' : 'с возвращением';
   $('#a-toggle').textContent = regMode ? 'уже есть аккаунт? войти' : 'нет аккаунта? зарегистрироваться';
 };
 $('#auth-form').onsubmit = async (e) => {
@@ -96,9 +114,9 @@ async function loadServers() {
 function renderRail() {
   const r = $('#rail');
   r.innerHTML =
-    `<div class="ic ${S.view.type === 'home' ? 'on' : ''}" data-act="home" title="личные сообщения">◎</div><div class="sep"></div>` +
+    `<div class="ic ${S.view.type === 'home' ? 'on' : ''}" data-act="home" title="личные сообщения">${ic('chat')}</div><div class="sep"></div>` +
     S.servers.map((s) => `<div class="ic ${S.view.type === 'server' && S.server?.server.id === s.id ? 'on' : ''}" data-sid="${s.id}" title="${esc(s.name)}">${esc(s.name.slice(0, 2))}</div>`).join('') +
-    `<div class="ic add" data-act="add" title="создать или присоединиться">+</div>`;
+    `<div class="ic add" data-act="add" title="создать или присоединиться">${ic('plus')}</div>`;
   r.onclick = (e) => {
     const t = e.target.closest('.ic');
     if (!t) return;
@@ -182,7 +200,7 @@ async function refreshHome() {
 
 function renderHomeSide() {
   $('#side-list').innerHTML =
-    `<div class="item ${!S.channel ? 'on' : ''}" data-act="friends">👥 друзья</div><div class="cat">лс</div>` +
+    `<div class="item ${!S.channel ? 'on' : ''}" data-act="friends">${ic('friends')} друзья</div><div class="cat">личные сообщения</div>` +
     S.dms.map((d) => `<div class="item ${S.channel?.id === d.id ? 'on' : ''}" data-dm="${d.id}" data-name="${esc(d.username)}">${avatar(d.username, 24)}${esc(d.username)}</div>`).join('');
   $('#side-list').onclick = (e) => {
     const t = e.target.closest('.item');
@@ -212,7 +230,7 @@ function showFriends() {
     <div class="row">${avatar(f.username, 36)}<div class="grow"><b>${esc(f.username)}</b>${f.status === 'outgoing' ? '<div class="muted">запрос отправлен</div>' : ''}</div>
     ${f.status === 'friend' ? `<button data-dm="${f.id}">сообщение</button>` : ''}
     ${f.status === 'incoming' ? `<button data-acc="${f.id}">принять</button>` : ''}
-    <button class="ghost" data-del="${f.id}">✕</button></div>`).join('') : '<div class="empty"><div class="big">🫥</div>здесь пока пусто</div>'}</div>`;
+    <button class="ghost" data-del="${f.id}" aria-label="удалить">${ic('close')}</button></div>`).join('') : '<div class="empty"><b>здесь пока пусто</b>добавь друзей по нику</div>'}</div>`;
   v.onclick = async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
@@ -233,20 +251,20 @@ async function openServer(id, channelId) {
   renderServerSide();
   renderMembers();
   if (target) openChannel(target);
-  else { $('#view').innerHTML = '<div class="empty"><div class="big">#</div>нет каналов</div>'; $('#main-head').innerHTML = burger(); }
+  else { $('#view').innerHTML = '<div class="empty"><b>каналов нет</b>владелец сервера может создать первый</div>'; $('#main-head').innerHTML = burger(); }
 }
 
 function renderServerSide() {
   const { server, channels } = S.server;
   const owner = server.owner_id === S.user.id;
-  $('#side-head').innerHTML = `<span>${esc(server.name)}</span><span><button class="icon-btn" id="inv" title="пригласить">＋👤</button><button class="icon-btn" id="leave" title="${owner ? 'удалить сервер' : 'выйти'}">⋯</button></span>`;
+  $('#side-head').innerHTML = `<span>${esc(server.name)}</span><span><button class="icon-btn" id="inv" title="пригласить" aria-label="пригласить">${ic('userplus')}</button><button class="icon-btn" id="leave" title="${owner ? 'удалить сервер' : 'выйти'}" aria-label="меню сервера">${ic('more')}</button></span>`;
   $('#inv').onclick = inviteModal;
   $('#leave').onclick = async () => {
     if (!confirm(owner ? 'удалить сервер навсегда?' : 'выйти с сервера?')) return;
     await api(`/servers/${server.id}`, { method: 'DELETE' }); await loadServers(); openHome();
   };
-  const group = (type, title) => `<div class="cat"><span>${title}</span>${owner ? `<button data-add="1" title="создать канал">+</button>` : ''}</div>` +
-    channels.filter((c) => c.type === type).map((c) => `<div class="item ${S.channel?.id === c.id ? 'on' : ''}" data-ch="${c.id}">${type === 'text' ? '#' : '🔊'} ${esc(c.name)}</div>` +
+  const group = (type, title) => `<div class="cat"><span>${title}</span>${owner ? `<button data-add="1" title="создать канал" aria-label="создать канал">${ic('plus')}</button>` : ''}</div>` +
+    channels.filter((c) => c.type === type).map((c) => `<div class="item ${S.channel?.id === c.id ? 'on' : ''}" data-ch="${c.id}">${ic(type === 'text' ? 'hash' : 'speaker')} ${esc(c.name)}</div>` +
       (type === 'voice' ? `<div class="voice-users" id="vu-${c.id}">${(S.voiceUsers[c.id] || []).map((n) => `<div>• ${esc(n)}</div>`).join('')}</div>` : '')).join('');
   $('#side-list').innerHTML = group('text', 'текстовые каналы') + group('voice', 'голосовые каналы');
   $('#side-list').onclick = (e) => {
@@ -263,7 +281,7 @@ function renderMembers() {
   const { members, server } = S.server;
   const owner = server.owner_id === S.user.id;
   $('#members').innerHTML = `<div class="cat">участники — ${members.length}</div>` + members.map((m) =>
-    `<div class="item" data-u="${m.id}">${avatar(m.username, 24)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(m.username)}${m.id === server.owner_id ? ' 👑' : ''}</span>${owner && m.id !== S.user.id ? `<button class="icon-btn" data-kick="${m.id}" title="исключить">✕</button>` : ''}</div>`).join('');
+    `<div class="item" data-u="${m.id}">${avatar(m.username, 24)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(m.username)}${m.id === server.owner_id ? ' 👑' : ''}</span>${owner && m.id !== S.user.id ? `<button class="icon-btn" data-kick="${m.id}" title="исключить" aria-label="исключить">${ic('close')}</button>` : ''}</div>`).join('');
   $('#members').onclick = async (e) => {
     const k = e.target.closest('[data-kick]');
     if (k && confirm('исключить участника?')) { await api(`/servers/${server.id}/kick/${k.dataset.kick}`, { method: 'POST' }); openServer(server.id, S.channel?.id); }
@@ -271,7 +289,7 @@ function renderMembers() {
 }
 
 // ---------- каналы
-function burger() { return '<button class="icon-btn burger" data-burger="1">☰</button>'; }
+function burger() { return `<button class="icon-btn burger" data-burger="1" aria-label="меню">${ic('menu')}</button>`; }
 function burgerClick(e) { if (e.target.closest('[data-burger]')) $('#app').classList.toggle('show-side'); }
 
 function openChannel(ch) {
@@ -281,13 +299,13 @@ function openChannel(ch) {
   S.channel = ch;
   S.typing = {};
   if (S.view.type === 'server') renderServerSide(); else renderHomeSide();
-  $('#main-head').innerHTML = `${burger()}<span class="muted">${ch.type === 'dm' ? '@' : '#'}</span> ${esc(ch.name)}`;
+  $('#main-head').innerHTML = `${burger()}<span class="muted">${ch.type === 'dm' ? '@' : ic('hash')}</span> ${esc(ch.name)}`;
   $('#main-head').onclick = burgerClick;
   const v = $('#view');
   v.onclick = null;
   v.innerHTML = `<div class="msgs" id="msgs"></div><div class="typing" id="typing"></div><div id="pf"></div>
-    <div class="composer"><button class="clip" id="clip" title="прикрепить файл">📎</button>
-    <textarea id="inp" rows="1" placeholder="написать в ${ch.type === 'dm' ? '@' : '#'}${esc(ch.name)}"></textarea><button id="send">➤</button></div>
+    <div class="composer"><button class="clip" id="clip" title="прикрепить файл" aria-label="прикрепить файл">${ic('plus')}</button>
+    <textarea id="inp" rows="1" placeholder="написать в ${ch.type === 'dm' ? '@' : '#'}${esc(ch.name)}"></textarea><button id="send" aria-label="отправить">${ic('send')}</button></div>
     <input type="file" id="file" class="hidden">`;
   S.pendingFile = null;
   loadMessages(ch.id);
@@ -307,7 +325,7 @@ function openChannel(ch) {
     $('#pf').innerHTML = `<div class="pending-file"><span>загрузка: ${esc(f.name)}…</span></div>`;
     try {
       S.pendingFile = await api('/upload', { method: 'POST', body: f, headers: { 'x-filename': encodeURIComponent(f.name), 'content-type': f.type || 'application/octet-stream' } });
-      $('#pf').innerHTML = `<div class="pending-file"><span>📎 ${esc(f.name)}</span><a href="#" id="pf-x">убрать</a></div>`;
+      $('#pf').innerHTML = `<div class="pending-file"><span>${esc(f.name)}</span><a href="#" id="pf-x">убрать</a></div>`;
       $('#pf-x').onclick = (ev) => { ev.preventDefault(); S.pendingFile = null; $('#pf').innerHTML = ''; };
     } catch (er) { $('#pf').innerHTML = `<div class="pending-file error">${esc(er.message)}</div>`; }
     e.target.value = '';
@@ -327,28 +345,31 @@ async function sendMessage() {
 }
 
 function msgHtml(m, prev) {
-  const cont = prev && prev.user_id === m.user_id && m.created_at - prev.created_at < 300000 && !prev.att_key;
   let att = '';
   if (m.att_key) {
     const url = '/files/' + m.att_key.split('/').map(encodeURIComponent).join('/');
     if ((m.att_type || '').startsWith('image/')) att = `<a href="${url}" target="_blank"><img class="att" src="${url}" alt=""></a>`;
     else if ((m.att_type || '').startsWith('video/')) att = `<video class="att" src="${url}" controls></video>`;
     else if ((m.att_type || '').startsWith('audio/')) att = `<audio src="${url}" controls></audio>`;
-    else att = `<a class="file" href="${url}" target="_blank" download="${esc(m.att_name)}">📄 ${esc(m.att_name)}</a>`;
+    else att = `<a class="file" href="${url}" target="_blank" download="${esc(m.att_name)}">${ic('file')} ${esc(m.att_name)}</a>`;
   }
   const linked = esc(m.content).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
-  const canDel = m.user_id === S.user.id || (S.server && S.server.server.owner_id === S.user.id);
-  const head = cont ? `<div class="gutter"><span class="time">${new Date(m.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span></div>`
-    : `<div class="gutter">${avatar(m.username, 40)}</div>`;
-  const name = cont ? '' : `<div class="meta"><span class="who" style="color:${colorOf(m.username)}">${esc(m.username)}</span><span class="time">${fmtTime(m.created_at)}</span></div>`;
-  return `<div class="msg ${cont ? 'cont' : ''}" data-id="${m.id}" data-uid="${m.user_id}" data-t="${m.created_at}" data-att="${m.att_key ? 1 : 0}">${head}<div class="body">${name}${linked ? `<div class="txt">${linked}</div>` : ''}${att}</div>${canDel ? '<button class="del" data-del="1" title="удалить">✕</button>' : ''}</div>`;
+  const mine = m.user_id === S.user.id;
+  const cont = prev && prev.user_id === m.user_id && m.created_at - prev.created_at < 300000;
+  const canDel = mine || (S.server && S.server.server.owner_id === S.user.id);
+  const when = fmtTime(m.created_at);
+  const gutter = mine ? '' : `<div class="gutter">${cont ? '' : avatar(m.username, 36)}</div>`;
+  const name = mine || cont ? '' : `<div class="who" style="color:${colorOf(m.username)}">${esc(m.username)}</div>`;
+  return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}" data-id="${m.id}" data-uid="${m.user_id}" data-t="${m.created_at}">${gutter}<div class="body">${name}
+    ${linked ? `<div class="bubble" title="${when}">${linked}</div>` : ''}${att}</div>
+    ${canDel ? `<button class="del" data-del="1" title="удалить" aria-label="удалить">${ic('close')}</button>` : ''}</div>`;
 }
 
 async function loadMessages(cid) {
   const d = await api(`/channels/${cid}/messages`);
   if (S.channel?.id !== cid) return;
   const box = $('#msgs');
-  box.innerHTML = d.messages.length ? d.messages.map((m, i) => msgHtml(m, d.messages[i - 1])).join('') : '<div class="empty"><div class="big">👋</div>тут пока тихо — напиши первым</div>';
+  box.innerHTML = d.messages.length ? d.messages.map((m, i) => msgHtml(m, d.messages[i - 1])).join('') : '<div class="empty"><b>здесь пока тихо</b>напиши первое сообщение</div>';
   box.scrollTop = box.scrollHeight;
   box.onclick = async (e) => {
     const b = e.target.closest('[data-del]');
@@ -372,7 +393,7 @@ function connectWs(cid) {
       const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
       if (box.querySelector('.empty')) box.innerHTML = '';
       const last = box.lastElementChild;
-      const prev = last?.dataset?.id ? { user_id: Number(last.dataset.uid), created_at: Number(last.dataset.t), att_key: last.dataset.att === '1' } : null;
+      const prev = last?.dataset?.id ? { user_id: Number(last.dataset.uid), created_at: Number(last.dataset.t) } : null;
       box.insertAdjacentHTML('beforeend', msgHtml(d.message, prev));
       if (atBottom || d.message.user_id === S.user.id) box.scrollTop = box.scrollHeight;
     } else if (d.type === 'delete') {
@@ -398,7 +419,7 @@ const ICE = { iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }, { urls: 's
 function openVoice(ch) {
   S.channel = ch;
   if (S.view.type === 'server') renderServerSide();
-  $('#main-head').innerHTML = `${burger()}<span class="muted">🔊</span> ${esc(ch.name)}`;
+  $('#main-head').innerHTML = `${burger()}<span class="muted">${ic('speaker')}</span> ${esc(ch.name)}`;
   $('#main-head').onclick = burgerClick;
   renderVoiceView();
 }
@@ -416,7 +437,7 @@ function renderVoiceView() {
   const tiles = [{ name: S.user.username + ' (ты)', cid: 'me' }, ...Object.entries(S.voice.peers).map(([cid, p]) => ({ name: p.name, cid }))];
   v.innerHTML = `<div class="voice-room"><h3>${esc(ch.name)}</h3><div class="tiles">${tiles.map((t) =>
     `<div class="tile" id="tile-${t.cid}">${avatar(t.name, 48)}<div>${esc(t.name)}</div></div>`).join('')}</div>
-    <div><button id="vmute" class="ghost">${S.voice.muted ? '🔇 включить микрофон' : '🎙 выключить микрофон'}</button> <button id="vleave" class="danger">отключиться</button></div></div>`;
+    <div><button id="vmute" class="ghost btn-ic">${ic(S.voice.muted ? 'micoff' : 'mic')} ${S.voice.muted ? 'включить микрофон' : 'выключить микрофон'}</button> <button id="vleave" class="danger">выйти из канала</button></div></div>`;
   $('#vmute').onclick = toggleMute;
   $('#vleave').onclick = leaveVoice;
 }
@@ -521,7 +542,7 @@ function updateVoiceBar() {
   const b = $('#voice-bar');
   if (!S.voice) return b.classList.add('hidden');
   b.classList.remove('hidden');
-  b.innerHTML = `<div><b>● голос</b><div class="muted">${esc(S.voice.name)}</div></div><div><button class="icon-btn" id="vb-mute">${S.voice.muted ? '🔇' : '🎙'}</button><button class="icon-btn" id="vb-leave">📴</button></div>`;
+  b.innerHTML = `<div><b>голос подключён</b><div class="muted">${esc(S.voice.name)}</div></div><div><button class="icon-btn" id="vb-mute">${ic(S.voice.muted ? 'micoff' : 'mic')}</button><button class="icon-btn" id="vb-leave" aria-label="выйти из канала">${ic('close')}</button></div>`;
   $('#vb-mute').onclick = toggleMute;
   $('#vb-leave').onclick = leaveVoice;
 }
