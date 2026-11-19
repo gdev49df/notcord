@@ -59,3 +59,26 @@ CREATE TABLE IF NOT EXISTS friends (
   PRIMARY KEY (user_a, user_b)
 );
 CREATE INDEX IF NOT EXISTS idx_friends_b ON friends(user_b);
+
+-- лента (как threads): посты, ответы (parent_id), лайки, подписки
+CREATE TABLE IF NOT EXISTS posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  parent_id INTEGER,
+  content TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_posts_parent ON posts(parent_id, id);
+CREATE INDEX IF NOT EXISTS idx_posts_user ON posts(user_id, id);
+CREATE TABLE IF NOT EXISTS post_likes (
+  post_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  PRIMARY KEY (post_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS follows (
+  follower_id INTEGER NOT NULL,
+  followee_id INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (follower_id, followee_id)
+);
+CREATE INDEX IF NOT EXISTS idx_follows_followee ON follows(followee_id);

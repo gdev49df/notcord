@@ -20,6 +20,11 @@ const ICONS = {
   friends: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 5a3.5 3.5 0 0 1 0 7M18 20a6 6 0 0 0-3-5"/>',
   chat: '<path d="M5 6h14v9h-8l-4 4v-4H5z"/>',
   file: '<path d="M7 3h7l4 4v14H7zM14 3v4h4"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+  heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
+  comment: '<path d="M4 5h16v11H11l-5 4v-4H4z"/>',
+  trash: '<path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/>',
+  back: '<path d="M15 5l-7 7 7 7"/>',
 };
 const ic = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
 
@@ -38,6 +43,7 @@ const S = {
   pendingFile: null,
   voice: null,
   voiceUsers: {},
+  feedTab: 'all',
 };
 
 async function api(path, opts = {}) {
@@ -111,7 +117,7 @@ async function boot() {
   if (inv) {
     try { const r = await api('/servers/join', { body: { code: inv } }); history.replaceState(null, '', '/'); await loadServers(); return openServer(r.id); } catch {}
   }
-  openHome();
+  openFeed();
 }
 
 async function loadServers() {
@@ -122,6 +128,7 @@ async function loadServers() {
 function renderRail() {
   const r = $('#rail');
   r.innerHTML =
+    `<div class="ic ${S.view.type === 'feed' ? 'on' : ''}" data-act="feed" title="лента">${ic('globe')}</div>` +
     `<div class="ic ${S.view.type === 'home' ? 'on' : ''}" data-act="home" title="личные сообщения">${ic('chat')}</div><div class="sep"></div>` +
     S.servers.map((s) => `<div class="ic ${S.view.type === 'server' && S.server?.server.id === s.id ? 'on' : ''}" data-sid="${s.id}" title="${esc(s.name)}">${esc(s.name.slice(0, 2))}</div>`).join('') +
     `<div class="ic add" data-act="add" title="создать или присоединиться">${ic('plus')}</div>`;
@@ -129,6 +136,7 @@ function renderRail() {
     const t = e.target.closest('.ic');
     if (!t) return;
     if (t.dataset.act === 'home') openHome();
+    else if (t.dataset.act === 'feed') openFeed();
     else if (t.dataset.act === 'add') addServerModal();
     else openServer(Number(t.dataset.sid));
   };
@@ -188,6 +196,7 @@ function inviteModal() {
 
 // ---------- главная: друзья и лс
 async function openHome() {
+  setLayout(false);
   closeWs();
   S.view = { type: 'home' };
   S.server = null;
@@ -250,6 +259,7 @@ function showFriends() {
 
 // ---------- сервер
 async function openServer(id, channelId) {
+  setLayout(true);
   closeWs();
   S.view = { type: 'server' };
   S.server = await api(`/servers/${id}`);
@@ -554,6 +564,182 @@ function updateVoiceBar() {
   b.innerHTML = `<div><b>голос подключён</b><div class="muted">${esc(S.voice.name)}</div></div><div><button class="icon-btn" id="vb-mute">${ic(S.voice.muted ? 'micoff' : 'mic')}</button><button class="icon-btn" id="vb-leave" aria-label="выйти из канала">${ic('close')}</button></div>`;
   $('#vb-mute').onclick = toggleMute;
   $('#vb-leave').onclick = leaveVoice;
+}
+
+
+// ---------- лента (как threads)
+function setLayout(withMembers) { $('#app').classList.toggle('no-members', !withMembers); }
+
+function timeAgo(t) {
+  const d = (Date.now() - t) / 1000;
+  if (d < 45) return 'только что';
+  if (d < 3600) return Math.round(d / 60) + ' мин';
+  if (d < 86400) return Math.round(d / 3600) + ' ч';
+  if (d < 7 * 86400) return Math.round(d / 86400) + ' д';
+  return new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+}
+
+function postHtml(p, opts = {}) {
+  const text = esc(p.content).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+  const mine = p.user_id === S.user.id;
+  return `<article class="post ${opts.reply ? 'reply' : ''}" data-post="${p.id}" ${opts.open === false ? '' : 'tabindex="0"'}>
+    <div class="post-av" data-user="${esc(p.username)}">${avatar(p.username, 40)}</div>
+    <div class="post-main">
+      <div class="post-head"><a class="post-name" href="#" data-user="${esc(p.username)}">${esc(p.username)}</a><span class="muted">${timeAgo(p.created_at)}</span>
+        ${mine ? `<button class="icon-btn post-del" data-act="del" title="удалить" aria-label="удалить">${ic('trash')}</button>` : ''}</div>
+      <div class="post-text">${text}</div>
+      <div class="post-actions">
+        <button class="act like ${p.liked ? 'on' : ''}" data-act="like" aria-pressed="${p.liked}" aria-label="нравится">${ic('heart')}<span>${p.likes || ''}</span></button>
+        <button class="act" data-act="open" aria-label="ответы">${ic('comment')}<span>${p.replies || ''}</span></button>
+      </div>
+    </div></article>`;
+}
+
+function composerHtml(placeholder, btn) {
+  return `<form class="post-composer" id="pc">${avatar(S.user.username, 40)}
+    <div class="pc-body"><textarea id="pc-text" rows="1" maxlength="1000" placeholder="${placeholder}"></textarea>
+    <div class="pc-foot"><span class="muted" id="pc-count"></span><button type="submit" id="pc-send" disabled>${btn}</button></div></div></form>`;
+}
+
+function bindComposer(onSubmit) {
+  const ta = $('#pc-text'), btn = $('#pc-send');
+  ta.oninput = () => {
+    ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 220) + 'px';
+    btn.disabled = !ta.value.trim();
+    $('#pc-count').textContent = ta.value.length > 800 ? `${ta.value.length}/1000` : '';
+  };
+  ta.onkeydown = (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && ta.value.trim()) $('#pc').requestSubmit(); };
+  $('#pc').onsubmit = async (e) => {
+    e.preventDefault();
+    const content = ta.value.trim();
+    if (!content) return;
+    btn.disabled = true;
+    try { await onSubmit(content); ta.value = ''; ta.style.height = 'auto'; }
+    catch (er) { alert(er.message); btn.disabled = false; }
+  };
+}
+
+function feedSide() {
+  const t = S.view.type === 'feed' ? S.view.page : '';
+  $('#side-head').innerHTML = '<span>лента</span>';
+  $('#side-list').innerHTML = [['all', 'для вас', 'globe'], ['following', 'подписки', 'friends'], ['me', 'моя страница', 'chat']]
+    .map(([k, n, i]) => `<div class="item ${t === k ? 'on' : ''}" data-feed="${k}" tabindex="0">${ic(i)} ${n}</div>`).join('');
+  $('#side-list').onclick = (e) => {
+    const t = e.target.closest('[data-feed]');
+    if (!t) return;
+    $('#app').classList.remove('show-side');
+    if (t.dataset.feed === 'me') openProfile(S.user.username); else openFeed(t.dataset.feed);
+  };
+  updateVoiceBar();
+}
+
+async function openFeed(tab) {
+  closeWs();
+  setLayout(false);
+  S.feedTab = tab || S.feedTab || 'all';
+  S.view = { type: 'feed', page: S.feedTab };
+  S.channel = null;
+  $('#members').innerHTML = '';
+  renderRail(); feedSide();
+  $('#app').classList.remove('show-side');
+  $('#main-head').innerHTML = `${burger()}<span>${S.feedTab === 'following' ? 'подписки' : 'для вас'}</span>`;
+  $('#main-head').onclick = burgerClick;
+  const v = $('#view');
+  v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
+  v.innerHTML = `<div class="feed" id="feed">${composerHtml('что нового?', 'опубликовать')}<div id="posts"><div class="empty">загрузка…</div></div></div>`;
+  bindComposer(async (content) => {
+    const d = await api('/posts', { body: { content } });
+    const box = $('#posts');
+    box.querySelector('.empty')?.remove();
+    box.insertAdjacentHTML('afterbegin', postHtml(d.post));
+  });
+  bindPostEvents(v, () => openFeed(S.feedTab));
+  const { posts } = await api(`/feed?tab=${S.feedTab}`);
+  if (S.view.type !== 'feed') return;
+  $('#posts').innerHTML = posts.length ? posts.map((p) => postHtml(p)).join('') :
+    `<div class="empty"><b>${S.feedTab === 'following' ? 'в подписках пока пусто' : 'здесь пока тихо'}</b>${S.feedTab === 'following' ? 'подпишись на людей, зайдя в их профиль' : 'напиши первый пост'}</div>`;
+}
+
+function bindPostEvents(root, refresh) {
+  root.onclick = async (e) => {
+    const user = e.target.closest('[data-user]');
+    if (user) { e.preventDefault(); return openProfile(user.dataset.user); }
+    const art = e.target.closest('.post');
+    if (!art) return;
+    const id = Number(art.dataset.post);
+    const btn = e.target.closest('[data-act]');
+    if (btn?.dataset.act === 'like') {
+      const on = !btn.classList.contains('on');
+      const cnt = btn.querySelector('span');
+      btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', on);
+      cnt.textContent = Math.max(0, (Number(cnt.textContent) || 0) + (on ? 1 : -1)) || '';
+      try { const r = await api(`/posts/${id}/like`, { method: 'POST' }); cnt.textContent = r.likes || ''; btn.classList.toggle('on', r.liked); }
+      catch { btn.classList.toggle('on', !on); }
+      return;
+    }
+    if (btn?.dataset.act === 'del') {
+      if (!confirm('удалить пост?')) return;
+      await api(`/posts/${id}`, { method: 'DELETE' });
+      art.classList.add('gone');
+      setTimeout(() => { if (art.classList.contains('reply') || root.querySelector('[data-thread]')) refresh(); else art.remove(); }, 250);
+      return;
+    }
+    if (e.target.closest('a')) return;
+    if (!art.classList.contains('reply')) openThread(id);
+  };
+  root.onkeydown = (e) => { if (e.key === 'Enter' && e.target.classList?.contains('post')) openThread(Number(e.target.dataset.post)); };
+}
+
+async function openThread(id) {
+  const v = $('#view');
+  S.view = { type: 'feed', page: S.feedTab };
+  $('#main-head').innerHTML = `<button class="icon-btn" id="back" aria-label="назад">${ic('back')}</button><span>пост</span>`;
+  $('#main-head').onclick = null;
+  $('#back').onclick = () => (S.view.profile ? openProfile(S.view.profile) : openFeed(S.feedTab));
+  v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
+  v.innerHTML = '<div class="feed"><div class="empty">загрузка…</div></div>';
+  let d;
+  try { d = await api(`/posts/${id}`); } catch (e) { v.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
+  v.innerHTML = `<div class="feed" data-thread="${id}">${postHtml(d.post, { open: false }).replace('class="post "', 'class="post big"')}
+    ${composerHtml(`ответить ${esc(d.post.username)}`, 'ответить')}
+    <div id="replies">${d.replies.map((r) => postHtml(r, { reply: true, open: false })).join('')}</div></div>`;
+  bindComposer(async (content) => {
+    const r = await api('/posts', { body: { content, parent_id: id } });
+    $('#replies').insertAdjacentHTML('beforeend', postHtml(r.post, { reply: true, open: false }));
+  });
+  bindPostEvents(v, () => openThread(id));
+}
+
+async function openProfile(username) {
+  closeWs(); setLayout(false);
+  S.view = { type: 'feed', page: username === S.user.username ? 'me' : '', profile: username };
+  renderRail(); feedSide();
+  $('#app').classList.remove('show-side');
+  $('#main-head').innerHTML = `${burger()}<span>${esc(username)}</span>`;
+  $('#main-head').onclick = burgerClick;
+  const v = $('#view');
+  v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
+  v.innerHTML = '<div class="feed"><div class="empty">загрузка…</div></div>';
+  let d;
+  try { d = await api(`/users/${encodeURIComponent(username)}`); } catch (e) { v.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
+  const u = d.user;
+  v.innerHTML = `<div class="feed"><div class="profile">${avatar(u.username, 72)}
+    <div class="pr-main"><h2>${esc(u.username)}</h2>
+      <div class="muted"><span id="pr-followers">${d.followers}</span> подписчиков · ${d.following} подписок</div>
+      <div class="muted">в сети с ${new Date(u.created_at).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</div></div>
+    ${d.is_me ? '' : `<div class="pr-btns"><button id="pr-follow" class="${d.is_following ? 'ghost' : ''}">${d.is_following ? 'вы подписаны' : 'подписаться'}</button><button class="ghost" id="pr-dm">написать</button></div>`}</div>
+    <div id="posts">${d.posts.length ? d.posts.map((p) => postHtml(p)).join('') : '<div class="empty"><b>постов пока нет</b></div>'}</div></div>`;
+  bindPostEvents(v, () => openProfile(username));
+  $('#pr-follow')?.addEventListener('click', async (e) => {
+    const r = await api(`/users/${u.id}/follow`, { method: 'POST' });
+    e.target.textContent = r.following ? 'вы подписаны' : 'подписаться';
+    e.target.classList.toggle('ghost', r.following);
+    $('#pr-followers').textContent = r.followers;
+  });
+  $('#pr-dm')?.addEventListener('click', async () => {
+    const r = await api('/dms', { body: { userId: u.id } });
+    await openHome(); await refreshHome(); openChannel({ id: r.id, name: r.username, type: 'dm' });
+  });
 }
 
 boot();

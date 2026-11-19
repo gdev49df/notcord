@@ -185,3 +185,38 @@ a{color:var(--text);text-decoration:underline;text-decoration-color:var(--muted)
 /* плавная смена экранов */
 .view.enter>*{animation:fade .35s var(--ease)}
 .main-head{transition:opacity .2s}
+
+/* лента */
+.app.no-members{grid-template-columns:76px 252px 1fr}
+.view>.feed,.view>.home{overflow-y:auto}
+.feed{flex:1;overflow-y:auto;width:100%;max-width:700px;margin:0 auto;padding:6px 0 40px}
+.post-composer{display:flex;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.pc-body{flex:1;min-width:0}
+.post-composer textarea{resize:none;border:0;background:transparent;padding:8px 0;box-shadow:none!important;min-height:44px;font-size:16px;border-radius:0}
+.pc-foot{display:flex;align-items:center;justify-content:flex-end;gap:12px}
+.pc-foot button{padding:8px 18px;border-radius:999px}
+.pc-foot button:disabled{opacity:.35;cursor:default;filter:none;transform:none}
+.post{display:flex;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line);cursor:pointer;position:relative;animation:pop .5s var(--spring);transition:background .2s,opacity .25s,transform .25s}
+.post:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
+.post.reply{cursor:default}
+.post.gone{opacity:0;transform:translateX(24px)}
+.post-main{flex:1;min-width:0}
+.post-head{display:flex;align-items:center;gap:8px}
+.post-name{font-weight:700;color:var(--text);text-decoration:none}.post-name:hover{text-decoration:underline}
+.post-del{margin-left:auto;opacity:0;transition:opacity .15s}.post:hover .post-del,.post-del:focus-visible{opacity:1}
+.post-text{white-space:pre-wrap;word-break:break-word;margin-top:2px;font-size:15.5px;line-height:1.5}
+.post.big .post-text{font-size:18px}
+.post-actions{display:flex;gap:6px;margin:8px 0 0 -8px}
+.act{background:none;color:var(--muted);padding:6px 10px;border-radius:999px;gap:6px;font-weight:500;font-size:14px}
+.act:hover{background:var(--raise);color:var(--text);filter:none}
+.act .i{width:19px;height:19px}
+.like.on{color:var(--text)}
+.like.on .i{fill:currentColor;animation:heart .5s var(--spring)}
+@keyframes heart{0%{transform:scale(.6)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+.profile{display:flex;gap:16px;align-items:center;padding:24px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.profile h2{margin:0 0 4px;font-size:24px;letter-spacing:-.02em}
+.pr-main{flex:1;min-width:180px}
+.pr-btns{display:flex;gap:8px}
+@media(max-width:1000px){.app.no-members{grid-template-columns:76px 220px 1fr}}
+@media(max-width:700px){.app.no-members{grid-template-columns:64px 1fr}.post,.post-composer{padding:14px 14px}}
+.app.no-members .members{display:none}

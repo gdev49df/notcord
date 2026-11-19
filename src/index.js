@@ -59,6 +59,20 @@ async function broadcast(env, room, payload) {
   await stub.fetch('https://room/broadcast', { method: 'POST', body: JSON.stringify(payload) });
 }
 
+
+// ---- лента
+const POST_SELECT = `SELECT p.id, p.user_id, u.username, p.parent_id, p.content, p.created_at,
+  (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS likes,
+  (SELECT COUNT(*) FROM posts r WHERE r.parent_id = p.id) AS replies,
+  EXISTS(SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.user_id = ?) AS liked
+  FROM posts p JOIN users u ON u.id = p.user_id`;
+
+async function getPost(env, id, me) {
+  const r = await env.DB.prepare(`${POST_SELECT} WHERE p.id = ?`).bind(me, id).first();
+  return r ? { ...r, liked: !!r.liked } : null;
+}
+const fixPosts = (rows) => rows.map((r) => ({ ...r, liked: !!r.liked }));
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -331,6 +345,82 @@ async function handleApi(req, env, url) {
       env.DB.prepare('INSERT INTO dm_members (channel_id, user_id) VALUES (?,?)').bind(cid, other.id),
     ]);
     return json({ id: cid, username: other.username });
+  }
+
+
+  // --- лента
+  if (p === '/feed' && m === 'GET') {
+    const before = Number(url.searchParams.get('before')) || 9e15;
+    const following = url.searchParams.get('tab') === 'following';
+    const where = following
+      ? 'p.parent_id IS NULL AND p.id < ? AND (p.user_id = ? OR p.user_id IN (SELECT followee_id FROM follows WHERE follower_id = ?))'
+      : 'p.parent_id IS NULL AND p.id < ?';
+    const binds = following ? [me.id, before, me.id, me.id] : [me.id, before];
+    const { results } = await env.DB.prepare(`${POST_SELECT} WHERE ${where} ORDER BY p.id DESC LIMIT 30`).bind(...binds).all();
+    return json({ posts: fixPosts(results) });
+  }
+  if (p === '/posts' && m === 'POST') {
+    const b = await req.json();
+    const content = (b.content || '').trim().slice(0, 1000);
+    if (!content) return err('пустой пост');
+    let parent = null;
+    if (b.parent_id) {
+      const pp = await env.DB.prepare('SELECT id, parent_id FROM posts WHERE id=?').bind(Number(b.parent_id)).first();
+      if (!pp) return err('пост не найден', 404);
+      parent = pp.parent_id || pp.id; // ответы всегда в корневой пост
+    }
+    const r = await env.DB.prepare('INSERT INTO posts (user_id, parent_id, content, created_at) VALUES (?,?,?,?)')
+      .bind(me.id, parent, content, now).run();
+    return json({ post: await getPost(env, r.meta.last_row_id, me.id) });
+  }
+  if ((mt = p.match(/^\/posts\/(\d+)$/))) {
+    const id = Number(mt[1]);
+    if (m === 'GET') {
+      const post = await getPost(env, id, me.id);
+      if (!post) return err('пост не найден', 404);
+      const { results } = await env.DB.prepare(`${POST_SELECT} WHERE p.parent_id = ? ORDER BY p.id ASC LIMIT 200`).bind(me.id, id).all();
+      return json({ post, replies: fixPosts(results) });
+    }
+    if (m === 'DELETE') {
+      const post = await env.DB.prepare('SELECT user_id FROM posts WHERE id=?').bind(id).first();
+      if (!post || post.user_id !== me.id) return err('нельзя', 403);
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM post_likes WHERE post_id=? OR post_id IN (SELECT id FROM posts WHERE parent_id=?)').bind(id, id),
+        env.DB.prepare('DELETE FROM posts WHERE parent_id=?').bind(id),
+        env.DB.prepare('DELETE FROM posts WHERE id=?').bind(id),
+      ]);
+      return json({ ok: true });
+    }
+  }
+  if ((mt = p.match(/^\/posts\/(\d+)\/like$/)) && m === 'POST') {
+    const id = Number(mt[1]);
+    if (!(await env.DB.prepare('SELECT 1 x FROM posts WHERE id=?').bind(id).first())) return err('пост не найден', 404);
+    const had = await env.DB.prepare('SELECT 1 x FROM post_likes WHERE post_id=? AND user_id=?').bind(id, me.id).first();
+    if (had) await env.DB.prepare('DELETE FROM post_likes WHERE post_id=? AND user_id=?').bind(id, me.id).run();
+    else await env.DB.prepare('INSERT INTO post_likes (post_id, user_id) VALUES (?,?)').bind(id, me.id).run();
+    const c = await env.DB.prepare('SELECT COUNT(*) n FROM post_likes WHERE post_id=?').bind(id).first();
+    return json({ liked: !had, likes: c.n });
+  }
+  if ((mt = p.match(/^\/users\/([^/]+)$/)) && m === 'GET') {
+    const u = await env.DB.prepare('SELECT id, username, created_at FROM users WHERE username = ?').bind(decodeURIComponent(mt[1])).first();
+    if (!u) return err('пользователь не найден', 404);
+    const [fr, fg, isf, posts] = await Promise.all([
+      env.DB.prepare('SELECT COUNT(*) n FROM follows WHERE followee_id=?').bind(u.id).first(),
+      env.DB.prepare('SELECT COUNT(*) n FROM follows WHERE follower_id=?').bind(u.id).first(),
+      env.DB.prepare('SELECT 1 x FROM follows WHERE follower_id=? AND followee_id=?').bind(me.id, u.id).first(),
+      env.DB.prepare(`${POST_SELECT} WHERE p.user_id = ? AND p.parent_id IS NULL ORDER BY p.id DESC LIMIT 30`).bind(me.id, u.id).all(),
+    ]);
+    return json({ user: u, followers: fr.n, following: fg.n, is_following: !!isf, is_me: u.id === me.id, posts: fixPosts(posts.results) });
+  }
+  if ((mt = p.match(/^\/users\/(\d+)\/follow$/)) && m === 'POST') {
+    const id = Number(mt[1]);
+    if (id === me.id) return err('нельзя подписаться на себя');
+    if (!(await env.DB.prepare('SELECT 1 x FROM users WHERE id=?').bind(id).first())) return err('пользователь не найден', 404);
+    const had = await env.DB.prepare('SELECT 1 x FROM follows WHERE follower_id=? AND followee_id=?').bind(me.id, id).first();
+    if (had) await env.DB.prepare('DELETE FROM follows WHERE follower_id=? AND followee_id=?').bind(me.id, id).run();
+    else await env.DB.prepare('INSERT INTO follows (follower_id, followee_id, created_at) VALUES (?,?,?)').bind(me.id, id, now).run();
+    const c = await env.DB.prepare('SELECT COUNT(*) n FROM follows WHERE followee_id=?').bind(id).first();
+    return json({ following: !had, followers: c.n });
   }
 
   return err('не найдено', 404);
