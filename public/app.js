@@ -24,7 +24,7 @@ function linkify(text, tags) {
   return h;
 }
 const plural = (n, a, b, c) => { const m = n % 100, d = n % 10; return n + ' ' + (m > 10 && m < 15 ? c : d === 1 ? a : d > 1 && d < 5 ? b : c); };
-const badge = (n) => (n > 0 ? `<span class="badge">${n > 99 ? '99+' : n}</span>` : '');
+const badge = (n, hot) => (n > 0 ? `<span class="badge ${hot ? 'hot' : ''}">${n > 99 ? '99+' : n}</span>` : '');
 function toast(msg) {
   const t = document.createElement('div');
   t.className = 'toast'; t.textContent = msg;
@@ -95,7 +95,8 @@ const S = {
   voiceUsers: {},
   feedTab: 'all',
   config: { files: false, telegram_bot: null },
-  unread: {}, srvUnread: {}, notif: 0, msgs: {}, replyTo: null,
+  unread: {}, srvUnread: {}, notif: 0, important: 0, msgs: {}, replyTo: null, serverFeed: false,
+  prefs: JSON.parse(localStorage.getItem('nc_prefs') || '{}'),
 };
 
 async function api(path, opts = {}) {
@@ -190,15 +191,15 @@ async function loadServers() {
 
 function renderRail() {
   const r = $('#rail');
-  const dmUnread = Object.values(S.dmUnread || {}).reduce((a, b) => a + b, 0);
+  const dmUnread = Object.values(S.dmUnread || {}).reduce((x, y) => x + y, 0);
   const on = (c) => (c ? 'on' : '');
+  const bell = S.important ? badge(S.important, true) : S.notif ? '<span class="badge dot"></span>' : '';
   r.innerHTML =
     `<div class="ic ${on(S.view.type === 'feed' && S.view.page !== 'notif')}" data-act="feed" title="лента">${ic('globe')}</div>` +
-    `<div class="ic ${on(S.view.page === 'notif')}" data-act="notif" title="уведомления">${ic('bell')}${badge(S.notif)}</div>` +
-    `<div class="ic ${on(S.view.type === 'home')}" data-act="home" title="личные сообщения">${ic('chat')}${badge(dmUnread)}</div><div class="sep"></div>` +
+    `<div class="ic ${on(S.view.page === 'notif')}" data-act="notif" title="уведомления">${ic('bell')}${bell}</div>` +
+    `<div class="ic ${on(S.view.type === 'home')}" data-act="home" title="личные сообщения">${ic('chat')}${badge(dmUnread, true)}</div><div class="sep"></div>` +
     S.servers.map((s) => `<div class="ic ${on(S.view.type === 'server' && S.server?.server.id === s.id)}" data-sid="${s.id}" title="${esc(s.name)}">${esc(s.name.slice(0, 2))}${badge(S.srvUnread[s.id])}</div>`).join('') +
-    `<div class="ic add" data-act="add" title="создать или присоединиться">${ic('plus')}</div>` +
-    `<div class="ic add" data-act="discover" title="каталог серверов">${ic('compass')}</div>`;
+    `<div class="ic add" data-act="add" title="создать, присоединиться, каталог">${ic('plus')}</div>`;
   r.onclick = (e) => {
     const t = e.target.closest('.ic');
     if (!t) return;
@@ -207,9 +208,15 @@ function renderRail() {
     else if (a === 'feed') openFeed();
     else if (a === 'notif') openNotifications();
     else if (a === 'add') addServerModal();
-    else if (a === 'discover') discoverModal();
     else openServer(Number(t.dataset.sid));
   };
+  // сервера для телефона (рейл там скрыт)
+  const chips = $('#side-chips');
+  if (chips) {
+    chips.innerHTML = S.servers.map((s) => `<button class="chip-btn ${on(S.view.type === 'server' && S.server?.server.id === s.id)}" data-sid="${s.id}">${esc(s.name)}${badge(S.srvUnread[s.id])}</button>`).join('');
+    chips.onclick = (e) => { const b = e.target.closest('[data-sid]'); if (b) openServer(Number(b.dataset.sid)); };
+  }
+  renderBnav?.();
 }
 
 // ---------- модалки
@@ -228,7 +235,9 @@ function addServerModal() {
     <div class="muted" style="text-align:center">или</div>
     <input id="m-code" placeholder="код приглашения">
     <button class="ghost" id="m-join">присоединиться</button>
+    <button class="ghost" id="m-disc">${ic('compass')} каталог открытых серверов</button>
     <div class="error" id="m-err"></div>`, (c) => {
+    c.querySelector('#m-disc').onclick = () => { closeModal(); discoverModal(); };
     c.querySelector('#m-create').onclick = async () => {
       try { const r = await api('/servers', { body: { name: c.querySelector('#m-name').value } }); closeModal(); await loadServers(); openServer(r.id); }
       catch (e) { c.querySelector('#m-err').textContent = e.message; }
@@ -355,9 +364,10 @@ function renderServerSide() {
   const group = (type, title) => `<div class="cat"><span>${title}</span>${owner ? `<button data-add="1" title="создать канал" aria-label="создать канал">${ic('plus')}</button>` : ''}</div>` +
     channels.filter((c) => c.type === type).map((c) => `<div class="item ${S.channel?.id === c.id ? 'on' : ''}" data-ch="${c.id}">${ic(type === 'text' ? 'hash' : 'speaker')} <span class="grow">${esc(c.name)}</span>${badge(S.unread[c.id])}</div>` +
       (type === 'voice' ? `<div class="voice-users" id="vu-${c.id}">${(S.voiceUsers[c.id] || []).map((n) => `<div>• ${esc(n)}</div>`).join('')}</div>` : '')).join('');
-  $('#side-list').innerHTML = group('text', 'текстовые каналы') + group('voice', 'голосовые каналы');
+  $('#side-list').innerHTML = `<div class="item ${S.serverFeed ? 'on' : ''}" data-sfeed="1">${ic('globe')} <span class="grow">лента сервера</span></div>` + group('text', 'текстовые каналы') + group('voice', 'голосовые каналы');
   $('#side-list').onclick = (e) => {
     if (e.target.closest('[data-add]')) return channelModal();
+    if (e.target.closest('[data-sfeed]')) { $('#app').classList.remove('show-side'); return openServerFeed(); }
     const t = e.target.closest('[data-ch]');
     if (!t) return;
     const ch = channels.find((c) => c.id === Number(t.dataset.ch));
@@ -387,6 +397,7 @@ function openChannel(ch) {
   if (ch.type === 'voice') return openVoice(ch);
   closeWs();
   S.channel = ch;
+  S.serverFeed = false;
   S.typing = {};
   S.replyTo = null;
   if (S.unread[ch.id]) { delete S.unread[ch.id]; recountUnread?.(); }
@@ -399,7 +410,7 @@ function openChannel(ch) {
   v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
   v.innerHTML = `<div class="msgs" id="msgs"></div><div class="typing" id="typing"></div><div id="pf"></div><div id="reply-bar"></div>
     <div class="composer"><button class="clip" id="clip" title="${S.config.files ? 'прикрепить файл' : 'файлы пока отключены'}" aria-label="прикрепить файл" ${S.config.files ? '' : 'disabled'}>${ic('plus')}</button>
-    <textarea id="inp" rows="1" placeholder="написать в ${ch.type === 'dm' ? '@' : '#'}${esc(ch.name)}"></textarea><button id="send" aria-label="отправить">${ic('send')}</button></div>
+    <textarea id="inp" rows="1" placeholder="написать в ${ch.type === 'dm' ? '@' : '#'}${esc(ch.name)}"></textarea>${S.config.files && window.MediaRecorder ? `<button class="clip" id="vnote" title="голосовое сообщение" aria-label="голосовое сообщение">${ic('mic')}</button>` : ''}<button id="send" aria-label="отправить">${ic('send')}</button></div>
     <input type="file" id="file" class="hidden">`;
   S.pendingFile = null;
   loadMessages(ch.id);
@@ -412,6 +423,7 @@ function openChannel(ch) {
   };
   inp.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } else if (e.key === 'Escape' && S.replyTo) setReply(null); };
   $('#send').onclick = sendMessage;
+  $('#vnote')?.addEventListener('click', toggleVoiceNote);
   $('#clip').onclick = () => $('#file').click();
   $('#file').onchange = async (e) => {
     const f = e.target.files[0];
@@ -425,6 +437,32 @@ function openChannel(ch) {
     e.target.value = '';
   };
   inp.focus();
+}
+let rec = null;
+async function toggleVoiceNote() {
+  const btn = $('#vnote');
+  if (rec) { rec.stop(); return; }
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { return toast('нет доступа к микрофону'); }
+  const chunks = [], t0 = Date.now(), cid = S.channel.id;
+  const r = new MediaRecorder(stream);
+  rec = r;
+  btn.classList.add('recording'); btn.innerHTML = ic('stop');
+  $('#pf').innerHTML = '<div class="pending-file"><span>идёт запись… нажми ещё раз, чтобы отправить</span></div>';
+  r.ondataavailable = (e) => chunks.push(e.data);
+  r.onstop = async () => {
+    stream.getTracks().forEach((t) => t.stop());
+    rec = null;
+    btn.classList?.remove('recording'); if (btn) btn.innerHTML = ic('mic');
+    $('#pf') && ($('#pf').innerHTML = '');
+    if (Date.now() - t0 < 700) return;
+    try {
+      const att = await uploadFile(new File([new Blob(chunks, { type: 'audio/webm' })], `голосовое-${Date.now()}.webm`, { type: 'audio/webm' }));
+      await api(`/channels/${cid}/messages`, { body: { content: '', ...att } });
+    } catch (er) { toast(er.message); }
+  };
+  r.start();
+  setTimeout(() => { if (rec === r) r.stop(); }, 120000);
 }
 async function uploadFile(f) {
   return api('/upload', { method: 'POST', body: f, headers: { 'x-filename': encodeURIComponent(f.name || 'file'), 'content-type': (f.type || 'application/octet-stream').split(';')[0] } });

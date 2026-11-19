@@ -435,7 +435,7 @@ export async function handleSocial(c) {
       ).bind(me.id, me.id).run();
     }
     const [notif, unread] = await Promise.all([
-      env.DB.prepare('SELECT COUNT(*) n FROM notifications WHERE user_id = ? AND is_read = 0').bind(me.id).first(),
+      env.DB.prepare("SELECT COUNT(*) n, COALESCE(SUM(type IN ('reply','mention','mention_msg','quote')),0) imp FROM notifications WHERE user_id = ? AND is_read = 0").bind(me.id).first(),
       env.DB.prepare(
         `SELECT c.id, c.server_id, COUNT(m.id) AS n FROM channels c
          LEFT JOIN channel_reads r ON r.channel_id = c.id AND r.user_id = ?
@@ -451,7 +451,7 @@ export async function handleSocial(c) {
       if (r.server_id) srv[r.server_id] = (srv[r.server_id] || 0) + r.n;
       else dms[r.id] = r.n;
     }
-    return json({ notifications: notif.n, unread: map, servers: srv, dms });
+    return json({ notifications: notif.n, important: notif.imp, unread: map, servers: srv, dms });
   }
   if ((mt = p.match(/^\/channels\/(\d+)\/read$/)) && m === 'POST') {
     const cid = Number(mt[1]);

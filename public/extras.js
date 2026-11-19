@@ -21,6 +21,7 @@ async function syncNow() {
   const prevNotif = S.notif;
   const prevDm = Object.values(S.dmUnread).reduce((a, b) => a + b, 0);
   S.notif = d.notifications;
+  S.important = d.important || 0;
   S.unread = d.unread;
   if (S.channel) { delete S.unread[S.channel.id]; }
   S.srvUnread = d.servers || {};
@@ -82,7 +83,7 @@ async function openNotifications(silent) {
     }
     if (n.post_id) openThread(n.post_id);
   };
-  if (S.notif) { await api('/notifications/read', { method: 'POST' }); S.notif = 0; renderRail(); feedSide(); document.title = "Earth's Network"; }
+  if (S.notif) { await api('/notifications/read', { method: 'POST' }); S.notif = 0; S.important = 0; renderRail(); feedSide(); document.title = "Earth's Network"; }
 }
 
 // ---- поиск
@@ -196,16 +197,84 @@ function applyTheme() {
   if (t === 'auto') root.removeAttribute('data-theme'); else root.dataset.theme = t;
   const light = t === 'light' || (t === 'auto' && matchMedia('(prefers-color-scheme: light)').matches);
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', light ? '#f4f4f4' : '#000000');
-  const b = $('#theme');
-  if (b) { b.innerHTML = ic(light ? 'moon' : 'sun'); b.title = `тема: ${{ auto: 'как в системе', light: 'светлая', dark: 'тёмная' }[t]}`; }
 }
-$('#theme').onclick = () => {
-  const order = ['auto', 'light', 'dark'];
-  const cur = localStorage.getItem('nc_theme') || 'auto';
-  localStorage.setItem('nc_theme', order[(order.indexOf(cur) + 1) % 3]);
-  applyTheme(); toast($('#theme').title);
-};
+$('#theme').innerHTML = ic('settings');
+$('#theme').title = 'настройки';
+$('#theme').onclick = () => settingsModal();
 applyTheme();
+
+// ---- настройки и тихий режим
+function applyPrefs() {
+  document.body.classList.toggle('quiet', !!S.prefs.quiet);
+  localStorage.setItem('nc_prefs', JSON.stringify(S.prefs));
+}
+applyPrefs();
+function settingsModal() {
+  const theme = localStorage.getItem('nc_theme') || 'auto';
+  const notif = 'Notification' in window ? Notification.permission : 'denied';
+  modal(`<h3>настройки</h3>
+    <div class="set-row"><div class="grow"><b>тема</b></div><div class="seg" id="st-theme">${[['auto', 'авто'], ['light', 'светлая'], ['dark', 'тёмная']].map(([k, n]) => `<button class="${theme === k ? 'on' : ''}" data-t="${k}">${n}</button>`).join('')}</div></div>
+    <label class="set-row"><div class="grow"><b>тихий режим</b><div class="muted small">без счётчиков лайков и ответов, без подсказок справа</div></div><input type="checkbox" id="st-quiet" ${S.prefs.quiet ? 'checked' : ''}></label>
+    <label class="set-row"><div class="grow"><b>подсказки справа</b><div class="muted small">«в тренде» и «кого читать» рядом с лентой</div></div><input type="checkbox" id="st-rail" ${S.prefs.rail ? 'checked' : ''}></label>
+    <div class="set-row"><div class="grow"><b>уведомления в браузере</b><div class="muted small">когда вкладка в фоне</div></div>${notif === 'granted' ? '<span class="muted small">включены</span>' : notif === 'denied' ? '<span class="muted small">запрещены в браузере</span>' : '<button class="mini" id="st-notif">включить</button>'}</div>
+    <div class="set-row"><div class="grow"><b>горячие клавиши</b></div><button class="mini ghost" id="st-keys">показать</button></div>
+    <div class="modal-actions"><button id="m-ok">готово</button></div>`, (c) => {
+    c.querySelector('#m-ok').onclick = closeModal;
+    c.querySelector('#st-theme').onclick = (ev) => {
+      const b = ev.target.closest('[data-t]'); if (!b) return;
+      localStorage.setItem('nc_theme', b.dataset.t); applyTheme();
+      c.querySelectorAll('#st-theme button').forEach((x) => x.classList.toggle('on', x === b));
+    };
+    c.querySelector('#st-quiet').onchange = (ev) => { S.prefs.quiet = ev.target.checked; applyPrefs(); if (S.view.type === 'feed') openFeed(); };
+    c.querySelector('#st-rail').onchange = (ev) => { S.prefs.rail = ev.target.checked; applyPrefs(); if (S.view.type === 'feed') feedLayout(); };
+    c.querySelector('#st-notif')?.addEventListener('click', async () => { await Notification.requestPermission(); settingsModal(); });
+    c.querySelector('#st-keys').onclick = helpModal;
+  });
+}
+
+// ---- палитра команд (ctrl/⌘ + k)
+function paletteOpen() {
+  if ($('#palette')) return;
+  const el = document.createElement('div');
+  el.id = 'palette'; el.className = 'palette';
+  el.innerHTML = `<div class="pal-card"><div class="search-box">${ic('search')}<input id="pal-in" placeholder="найти человека, сервер или команду" autocomplete="off"></div><div class="pal-list" id="pal-list"></div></div>`;
+  document.body.appendChild(el);
+  const inp = el.querySelector('#pal-in'), list = el.querySelector('#pal-list');
+  let sel = 0, items = [], timer, people = [];
+  const cmds = [
+    ['лента', 'globe', () => openFeed()], ['моя страница', 'chat', () => openProfile(S.user.username)],
+    ['личные сообщения', 'chat', () => openHome()], ['уведомления', 'bell', () => openNotifications()],
+    ['каталог серверов', 'compass', () => discoverModal()], ['настройки', 'settings', () => settingsModal()],
+    ['горячие клавиши', 'smile', () => helpModal()],
+  ];
+  const close = () => { el.remove(); };
+  const build = () => {
+    const q = inp.value.trim().toLowerCase();
+    items = [];
+    cmds.filter((c) => !q || c[0].includes(q)).forEach((c) => items.push({ label: c[0], icon: c[1], run: c[2], kind: 'команда' }));
+    S.servers.filter((s) => !q || s.name.toLowerCase().includes(q)).forEach((s) => items.push({ label: s.name, icon: 'hash', run: () => openServer(s.id), kind: 'сервер' }));
+    people.forEach((u) => items.push({ label: u.username, avatar: u.username, run: () => openProfile(u.username), kind: 'человек' }));
+    if (q) items.push({ label: `искать «${inp.value.trim()}» везде`, icon: 'search', run: () => openSearch(inp.value.trim()), kind: '' });
+    sel = Math.min(sel, Math.max(0, items.length - 1));
+    list.innerHTML = items.map((it, i) => `<div class="pal-item ${i === sel ? 'on' : ''}" data-i="${i}">${it.avatar ? avatar(it.avatar, 24) : ic(it.icon)}<span class="grow">${esc(it.label)}</span><span class="muted small">${it.kind}</span></div>`).join('');
+    list.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
+  };
+  inp.oninput = () => {
+    sel = 0; build(); clearTimeout(timer);
+    const q = inp.value.trim().replace(/^@/, '');
+    if (q.length < 2) { people = []; return; }
+    timer = setTimeout(async () => { try { people = (await api('/people?q=' + encodeURIComponent(q))).users.slice(0, 5); build(); } catch {} }, 200);
+  };
+  inp.onkeydown = (ev) => {
+    if (ev.key === 'ArrowDown') { ev.preventDefault(); sel = Math.min(items.length - 1, sel + 1); build(); }
+    else if (ev.key === 'ArrowUp') { ev.preventDefault(); sel = Math.max(0, sel - 1); build(); }
+    else if (ev.key === 'Enter') { ev.preventDefault(); const it = items[sel]; close(); it?.run(); }
+    else if (ev.key === 'Escape') close();
+  };
+  list.onclick = (ev) => { const i = ev.target.closest('[data-i]'); if (i) { const it = items[Number(i.dataset.i)]; close(); it.run(); } };
+  el.onclick = (ev) => { if (ev.target === el) close(); };
+  build(); inp.focus();
+}
 
 // ---- глобальные клики по @ник и #тег, горячие клавиши
 document.addEventListener('click', (e) => {
@@ -218,14 +287,15 @@ document.addEventListener('click', (e) => {
   if (u) openProfile(u.dataset.user); else openSearch('#' + t.dataset.tag);
 });
 function helpModal() {
-  const rows = [['Ctrl/⌘ + K', 'поиск'], ['Alt + ↑ / ↓', 'предыдущий / следующий канал'], ['Esc', 'закрыть окно'], ['Enter', 'отправить сообщение'], ['Shift + Enter', 'новая строка'], ['Ctrl + Enter', 'опубликовать пост'], ['?', 'эта подсказка']];
+  const rows = [['Ctrl/⌘ + K', 'быстрый переход и поиск'], ['Alt + ↑ / ↓', 'предыдущий / следующий канал'], ['Esc', 'закрыть окно'], ['Enter', 'отправить сообщение'], ['Shift + Enter', 'новая строка'], ['Ctrl + Enter', 'опубликовать пост'], ['?', 'эта подсказка']];
   modal(`<h3>горячие клавиши</h3>${rows.map(([k, n]) => `<div class="row"><kbd>${k}</kbd><span class="grow">${n}</span></div>`).join('')}<div class="modal-actions"><button id="m-ok">понятно</button></div>`, (c) => { c.querySelector('#m-ok').onclick = closeModal; });
 }
 document.addEventListener('keydown', (e) => {
   if (!S.user) return;
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openSearch(''); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); paletteOpen(); return; }
   if (e.key === 'Escape') {
+    if ($('#palette')) return $('#palette').remove();
     if ($('#story-view')) return closeStory();
     if (!$('#modal').classList.contains('hidden')) return closeModal();
   }
@@ -266,3 +336,28 @@ async function onTelegramAuth(user) {
 
 // ---- pwa
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+
+// ---- нижняя навигация (телефон)
+function renderBnav() {
+  const b = $('#bnav');
+  if (!b || !S.user) return;
+  const dm = Object.values(S.dmUnread || {}).reduce((x, y) => x + y, 0);
+  const p = S.view.page, t = S.view.type;
+  const items = [
+    ['feed', 'globe', 'лента', t === 'feed' && ['all', 'following', 'clips', 'server'].includes(p), ''],
+    ['home', 'chat', 'чаты', t === 'home' || t === 'server', badge(dm + Object.values(S.srvUnread || {}).reduce((x, y) => x + y, 0), true)],
+    ['search', 'search', 'поиск', false, ''],
+    ['notif', 'bell', 'события', p === 'notif', S.important ? badge(S.important, true) : S.notif ? '<span class="badge dot"></span>' : ''],
+    ['me', 'friends', 'я', p === 'me', ''],
+  ];
+  b.innerHTML = items.map(([k, i, n, on, bd]) => `<button class="${on ? 'on' : ''}" data-b="${k}">${ic(i)}<span>${n}</span>${bd}</button>`).join('');
+  b.onclick = (ev) => {
+    const x = ev.target.closest('[data-b]');
+    if (!x) return;
+    $('#app').classList.remove('show-side');
+    const k = x.dataset.b;
+    if (k === 'feed') openFeed(); else if (k === 'home') openHome(); else if (k === 'search') paletteOpen();
+    else if (k === 'notif') openNotifications(); else openProfile(S.user.username);
+  };
+}

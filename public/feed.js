@@ -53,10 +53,8 @@ function postHtml(p, opts = {}) {
       ${mediaHtml(p)}${pollHtml(p)}${p.quote ? quoteHtml(p.quote) : ''}
       <div class="post-actions">
         <button class="act" data-act="open" aria-label="ответы">${ic('comment')}<span>${p.replies || ''}</span></button>
-        <button class="act rp ${p.reposted ? 'on' : ''}" data-act="repost" aria-pressed="${!!p.reposted}" aria-label="репост" title="репост">${ic('repost')}<span>${p.reposts || ''}</span></button>
-        <button class="act" data-act="quote" aria-label="цитата" title="цитата">${ic('quote')}</button>
+        <button class="act rp ${p.reposted ? 'on' : ''}" data-act="repost" aria-pressed="${!!p.reposted}" aria-label="репост или цитата" title="репост или цитата">${ic('repost')}<span>${p.reposts || ''}</span></button>
         <button class="act like ${p.liked ? 'on' : ''}" data-act="like" aria-pressed="${p.liked}" aria-label="нравится">${ic('heart')}<span>${p.likes || ''}</span></button>
-        <button class="act" data-act="share" aria-label="отправить в чат" title="отправить в чат">${ic('share')}</button>
       </div>
     </div></article>`;
 }
@@ -64,7 +62,7 @@ function postHtml(p, opts = {}) {
 // ---- композер
 function composerHtml(placeholder, btn, o = {}) {
   const mine = S.servers.filter((s) => s.owner_id === S.user.id);
-  return `<form class="post-composer" id="pc">${avatar(S.user.username, 40)}
+  return `<form class="post-composer ${o.open ? 'open' : ''}" id="pc">${avatar(S.user.username, 40)}
     <div class="pc-body"><textarea id="pc-text" rows="1" maxlength="1000" placeholder="${placeholder}"></textarea>
     <div id="pc-extra"></div>
     <div class="pc-foot"><div class="pc-tools">
@@ -78,6 +76,7 @@ function composerHtml(placeholder, btn, o = {}) {
 function bindComposer(onSubmit) {
   const ta = $('#pc-text'), btn = $('#pc-send');
   const st = { att: null, poll: false };
+  ta.onfocus = () => $('#pc').classList.add('open');
   const sync = () => { btn.disabled = !(ta.value.trim() || st.att || (st.poll && pollValues().length >= 2)); };
   const pollValues = () => [...document.querySelectorAll('.poll-in')].map((i) => i.value.trim()).filter(Boolean);
   const drawExtra = () => {
@@ -120,10 +119,11 @@ function bindComposer(onSubmit) {
 // ---- боковые панели
 function feedSide() {
   const pg = S.view.type === 'feed' ? S.view.page : '';
-  $('#side-head').innerHTML = '<span>лента</span>';
-  const items = [['all', 'для вас', 'globe'], ['following', 'подписки', 'friends'], ['clips', 'клипы', 'film'], ['search', 'поиск', 'search'], ['notif', 'уведомления', 'bell'], ['me', 'моя страница', 'chat']];
-  if (S.user.is_admin) items.push(['admin', 'жалобы', 'shield']);
-  $('#side-list').innerHTML = items.map(([k, n, i]) => `<div class="item ${pg === k ? 'on' : ''}" data-feed="${k}" tabindex="0">${ic(i)} <span class="grow">${n}</span>${k === 'notif' ? badge(S.notif) : ''}</div>`).join('');
+  $('#side-head').innerHTML = '<span>earth\'s network</span>';
+  const items = [['feed', 'лента', 'globe', ['all', 'following', 'clips'].includes(pg)], ['search', 'поиск', 'search', pg === 'search'], ['me', 'моя страница', 'chat', pg === 'me']];
+  if (S.user.is_admin) items.push(['admin', 'жалобы', 'shield', pg === 'admin']);
+  items.push(['settings', 'настройки', 'settings', false]);
+  $('#side-list').innerHTML = items.map(([k, n, i, on]) => `<div class="item ${on ? 'on' : ''}" data-feed="${k}" tabindex="0">${ic(i)} <span class="grow">${n}</span></div>`).join('');
   $('#side-list').onclick = (e) => {
     const t = e.target.closest('[data-feed]');
     if (!t) return;
@@ -131,9 +131,9 @@ function feedSide() {
     const k = t.dataset.feed;
     if (k === 'me') openProfile(S.user.username);
     else if (k === 'search') openSearch('');
-    else if (k === 'notif') openNotifications();
     else if (k === 'admin') openAdmin();
-    else openFeed(k);
+    else if (k === 'settings') settingsModal();
+    else openFeed();
   };
   updateVoiceBar();
 }
@@ -156,8 +156,11 @@ async function renderRightRail() {
     f.classList.toggle('ghost', r.following);
   };
 }
-function feedLayout() { setLayout(true); renderRightRail(); }
-
+function feedLayout() {
+  const show = !!S.prefs.rail && !S.prefs.quiet;
+  setLayout(show);
+  if (show) renderRightRail(); else $('#members').innerHTML = '';
+}
 // ---- истории
 const seen = () => new Set(JSON.parse(localStorage.getItem('nc_seen') || '[]'));
 async function renderStories() {
@@ -275,7 +278,7 @@ async function openFeed(tab) {
 
 async function loadPosts(path, box, kind, first = true) {
   const { posts } = await api(path);
-  if (S.view.type !== 'feed' || !box.isConnected) return;
+  if ((S.view.type !== 'feed' && kind !== 'server') || !box.isConnected) return;
   const html = posts.map((p) => postHtml(p)).join('');
   if (first) {
     box.innerHTML = html || `<div class="empty"><b>${kind === 'following' ? 'в подписках пока пусто' : kind === 'clips' ? 'клипов пока нет' : 'здесь пока тихо'}</b>${kind === 'following' ? 'подпишись на людей, зайдя в их профиль' : kind === 'clips' ? 'включи показ экрана в голосовом канале и нажми «клип»' : 'напиши первый пост'}</div>`;
@@ -327,22 +330,24 @@ function bindPostEvents(root, refresh) {
       return;
     }
     if (act === 'repost') {
+      e.preventDefault();
+      const k = await showPop(btn, [['repost', btn.classList.contains('on') ? 'убрать репост' : 'репост', 'repost'], ['quote', 'цитата', 'quote']]);
+      if (k === 'quote') return quoteModal(id, refresh);
       const r = await api(`/posts/${id}/repost`, { method: 'POST' });
       btn.classList.toggle('on', r.reposted); btn.querySelector('span').textContent = r.reposts || '';
       toast(r.reposted ? 'репост опубликован' : 'репост убран');
       return;
     }
-    if (act === 'quote') return quoteModal(id, refresh);
-    if (act === 'share') return shareModal(id);
     if (act === 'more') {
       e.preventDefault();
       const post = (S.postCache || {})[id];
       const mine = art.querySelector('.post-name')?.textContent === S.user.username;
-      const items = [['copy', 'скопировать ссылку', 'share']];
+      const items = [['share', 'отправить в чат', 'share'], ['copy', 'скопировать ссылку', 'share']];
       if (mine && !art.classList.contains('reply')) items.push(['pin', 'закрепить / открепить', 'pin']);
       if (mine || S.user.is_admin) items.push(['del', 'удалить', 'trash']);
       if (!mine) items.push(['report', 'пожаловаться', 'flag']);
       const k = await showPop(btn, items);
+      if (k === 'share') return shareModal(id);
       if (k === 'copy') { navigator.clipboard?.writeText(`${location.origin}/?post=${id}`); toast('ссылка скопирована'); }
       if (k === 'pin') { const r = await api(`/posts/${id}/pin`, { method: 'POST' }); toast(r.pinned ? 'закреплено в профиле' : 'откреплено'); }
       if (k === 'report') reportModal('post', id);
@@ -486,4 +491,28 @@ function profileModal(u) {
       } catch (er) { c.querySelector('#m-err').textContent = er.message; }
     };
   });
+}
+
+
+// ---- лента внутри сервера
+async function openServerFeed() {
+  if (!S.server) return;
+  const { server } = S.server;
+  const owner = server.owner_id === S.user.id;
+  closeWs(); S.channel = null; S.serverFeed = true;
+  setLayout(true); renderServerSide(); renderRail();
+  $('#main-head').innerHTML = `${burger()}<span class="muted">${ic('globe')}</span> <span class="grow">лента · ${esc(server.name)}</span>`;
+  $('#main-head').onclick = burgerClick;
+  const v = $('#view');
+  v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
+  v.innerHTML = `<div class="feed">${owner ? composerHtml(`новость от имени «${esc(server.name)}»`, 'опубликовать', { open: false }) : ''}<div id="posts"><div class="empty">загрузка…</div></div></div>`;
+  if (owner) bindComposer(async (content, extra) => {
+    const d = await api('/posts', { body: { content, ...extra, server_id: server.id } });
+    const box = $('#posts'); box.querySelector('.empty')?.remove();
+    box.insertAdjacentHTML('afterbegin', postHtml(d.post));
+  });
+  bindPostEvents(v, () => openServerFeed());
+  await loadPosts(`/feed?tab=server&server_id=${server.id}`, $('#posts'), 'server');
+  const box = $('#posts');
+  if (box && box.querySelector('.empty b')) box.querySelector('.empty').innerHTML = `<b>здесь пока тихо</b>${owner ? 'опубликуй первую новость сервера' : 'владелец сервера ещё ничего не публиковал'}`;
 }
