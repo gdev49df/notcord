@@ -782,3 +782,33 @@ button.sx-tab.danger:hover{background:color-mix(in srgb,var(--red) 14%,transpare
 .sw.on{box-shadow:0 0 0 2px var(--night),0 0 0 3.5px var(--text)!important}
 .sw.custom .i{width:11px;height:11px}.sw-group{gap:4px!important;margin-bottom:8px!important}
 .sw-grad input[type=color]{width:34px!important;height:26px!important}
+
+/* ---- телефон: два экрана, как в Discord */
+@media(max-width:700px){
+  body{overscroll-behavior:none}
+  input,textarea,select{font-size:16px!important}
+  .app,.app.no-members{display:grid;grid-template-columns:72px minmax(0,1fr);grid-template-rows:minmax(0,1fr);height:100dvh;padding:0;gap:0}
+  .rail{display:flex!important;border-radius:0;padding:10px 0 calc(74px + env(safe-area-inset-bottom));gap:10px}
+  .rail .ic{width:48px;height:48px}.rail .ic.on::before{left:-12px}
+  .side,.app.show-side .side{display:flex;position:static;width:auto;left:auto;top:auto;bottom:auto;z-index:auto;border-radius:18px 0 0 0;padding-bottom:calc(60px + env(safe-area-inset-bottom))}
+  .side .item{padding:12px 12px;font-size:15.5px}
+  .side .me-bar{display:none}
+  .main{display:none}
+  .app.m-main,.app.m-main.no-members{grid-template-columns:minmax(0,1fr)}
+  .app.m-main .rail,.app.m-main .side{display:none!important}
+  .app.m-main .main{display:flex;border-radius:0;border:0}
+  .app.m-main ~ .bnav{display:none!important}
+  .bnav{left:0!important;right:0!important;bottom:0!important;border-radius:0!important;border:0!important;border-top:1px solid var(--line)!important;background:var(--night)!important;padding:6px 6px calc(6px + env(safe-area-inset-bottom))!important}
+  .bnav button{padding:6px 4px!important;min-height:48px}
+  .main-head{height:54px;padding:0 6px;gap:4px}
+  .main-head .burger{display:inline-flex}.main-head .burger .i{transform:rotate(180deg)}
+  .main-head .ch-topic{display:none}
+  .main-head .icon-btn{width:40px;height:40px}
+  .composer{margin:0 8px calc(8px + env(safe-area-inset-bottom))}
+  .msg .body{max-width:100%}
+  .app.show-members .members{display:block!important;position:fixed;right:0;top:0;bottom:0;width:min(300px,84vw);z-index:20;padding-top:calc(10px + env(safe-area-inset-top));box-shadow:-20px 0 60px #000a;animation:rise .3s var(--spring)}
+  .app.show-members::after{content:"";position:fixed;inset:0;background:#0007;z-index:19}
+  .app.show-members .members .item{padding:10px}
+  .modal-card{max-width:100vw}
+}
+@media(max-width:700px){.side-chips{display:none!important}}

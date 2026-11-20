@@ -447,7 +447,7 @@ function renderMembers() {
 }
 
 // ---------- каналы
-function burger() { return `<button class="icon-btn burger" data-burger="1" aria-label="Меню">${ic('menu')}</button>`; }
+function burger() { return `<button class="icon-btn burger" data-burger="1" aria-label="Назад">${ic(typeof isM === 'function' && isM() ? 'chevron' : 'menu')}</button>`; }
 function burgerClick(e) { if (e.target.closest('[data-burger]')) $('#app').classList.toggle('show-side'); }
 
 function openChannel(ch) {
