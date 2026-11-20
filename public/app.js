@@ -320,9 +320,9 @@ function showFriends() {
     v.innerHTML = `<div class="home addpage"><h2>Добавить в друзья</h2><div class="lead">Вы можете добавить друзей по нику.</div>
       <div class="addbox"><div class="addrow"><input id="f-name" placeholder="Введите ник" autocomplete="off"><button id="f-send" disabled>Отправить запрос дружбы</button></div></div>
       <div id="f-msg" class="muted small"></div>
-      <div class="sep-line"></div><h2>Где ещё можно завести друзей</h2>
-      <div class="lead">Нет знакомых пользователей? Тогда просмотрите каталог открытых серверов, где найдётся всё: от игр до музыки и кулинарии.</div>
-      <button class="disc-card" id="f-disc"><span class="disc-ic">${ic('compass')}</span><b class="grow">Исследуйте доступные серверы</b>${ic('chevron')}</button></div>`;
+      <div class="sep-line"></div><h2>Найди друзей на серверах</h2>
+      <div class="lead soft">Пока никого не знаешь? Загляни в каталог открытых серверов: там игры, музыка, учёба и всё остальное.</div>
+      <button class="disc-card" id="f-disc"><span class="disc-ic">${ic('compass')}</span><span class="grow"><b>Каталог серверов</b><span class="muted small">Открытые сообщества, куда можно зайти сразу</span></span>${ic('chevron')}</button></div>`;
     const inp = $('#f-name'), btn = $('#f-send');
     inp.oninput = () => { btn.disabled = !inp.value.trim(); };
     inp.onkeydown = (e) => { if (e.key === 'Enter' && !btn.disabled) btn.click(); };
