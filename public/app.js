@@ -393,7 +393,7 @@ function renderServerSide() {
   const group = (type, title) => `<div class="cat"><span>${title}</span>${canCh ? `<button data-add="${type}" title="Создать канал" aria-label="Создать канал">${ic('plus')}</button>` : ''}</div>` +
     channels.filter((c) => c.type === type).map((c) => `<div class="item ${S.channel?.id === c.id ? 'on' : ''}" data-ch="${c.id}">${ic(c.is_private ? 'lock' : type === 'text' ? 'hash' : 'speaker')} <span class="grow">${esc(c.name)}</span>${canCh ? `<button class="icon-btn ch-gear" data-gear="${c.id}" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}${badge(S.unread[c.id])}</div>` +
       (type === 'voice' ? `<div class="voice-users" id="vu-${c.id}">${(S.voiceUsers[c.id] || []).map((n) => `<div>• ${esc(n)}</div>`).join('')}</div>` : '')).join('');
-  $('#side-list').innerHTML = `<div class="item ${S.serverFeed ? 'on' : ''}" data-sfeed="1">${ic('globe')} <span class="grow">Лента сервера</span></div>` + group('text', 'Текстовые каналы') + group('voice', 'Голосовые каналы');
+  $('#side-list').innerHTML = group('text', 'Текстовые каналы') + group('voice', 'Голосовые каналы');
   $('#side-list').onclick = (e) => {
     const g = e.target.closest('[data-gear]');
     if (g) { e.stopPropagation(); return channelSettings(channels.find((c) => c.id === Number(g.dataset.gear))); }
