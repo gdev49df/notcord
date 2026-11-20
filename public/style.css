@@ -84,7 +84,7 @@ a{color:var(--text);text-decoration:underline;text-decoration-color:var(--muted)
 .panel{background:var(--glass);backdrop-filter:blur(26px) saturate(170%);-webkit-backdrop-filter:blur(26px) saturate(170%);border:1px solid var(--line);border-top-color:#ffffff24;box-shadow:0 12px 40px #00000030;min-height:0;min-width:0}
 .rail{border-radius:12px;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px 0;scrollbar-width:none}
 .rail::-webkit-scrollbar{display:none}
-.rail .ic{position:relative;width:48px;height:48px;border-radius:12px;background:var(--raise);color:var(--text);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;cursor:pointer;user-select:none;flex:none;transition:border-radius .5s var(--spring),background .2s,transform .5s var(--spring)}
+.rail .ic{position:relative;width:44px;height:44px;border-radius:12px;background:var(--raise);color:var(--text);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;cursor:pointer;user-select:none;flex:none;transition:border-radius .5s var(--spring),background .2s,transform .5s var(--spring)}
 .rail .ic:hover{border-radius:12px;transform:translateY(-1px)}
 .rail .ic:active{transform:scale(.92);transition-duration:.08s}
 .rail .ic.on{border-radius:12px;background:var(--sky);color:var(--on-sky)}
@@ -610,3 +610,5 @@ button.sx-tab.danger:hover{background:color-mix(in srgb,var(--red) 14%,transpare
 .tmsg .tbody{white-space:pre-wrap;word-break:break-word}.tmsg img.att{max-width:100%;border-radius:10px;margin-top:4px}
 .tmsg .tdel{opacity:0;position:absolute;right:0;top:6px;padding:3px}.tmsg:hover .tdel{opacity:1}.tmsg .tdel .i{width:14px;height:14px}
 .tp-composer{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}.tp-composer textarea{flex:1;resize:none;min-height:42px}
+.rail .ic .i,.rail .ic svg{width:26px;height:26px}
+.rail .ic.on::before{top:12px}
