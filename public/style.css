@@ -716,3 +716,15 @@ button.sx-tab.danger:hover{background:color-mix(in srgb,var(--red) 14%,transpare
 .disc-card:hover{transform:translateY(-2px);border-color:var(--muted)}
 .disc-card .grow{display:flex;flex-direction:column;gap:2px;font-size:16px}
 .disc-ic{width:52px;height:52px;border-radius:14px}.disc-ic .i{width:26px;height:26px}
+.avatar .dot.dnd{background:#ff5a5f;opacity:1}
+.avatar .dot.inv{background:var(--surface);opacity:1;box-shadow:inset 0 0 0 2px var(--muted)}
+.uc-status-t{padding:0 4px;font-size:14px;word-break:break-word}
+.uc-pres{display:flex;flex-direction:column}
+.uc-row .pdot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.pdot.online{background:#3ddc84}.pdot.dnd{background:#ff5a5f}.pdot.invisible{background:var(--surface);box-shadow:inset 0 0 0 2px var(--muted)}
+.uc-row.cur{background:var(--raise)}
+.uc-row small{display:block;color:var(--muted);font-weight:400}
+.st-emoji{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}.st-emoji button{background:var(--raise);color:var(--text);padding:4px 8px;font-size:16px;border-radius:8px}
+.st-row{display:flex;gap:8px;align-items:center}.st-row select{width:auto}
+.pres-b{padding:8px 14px}.pres-b.on{outline:2px solid var(--text)}
+.pdot{width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}

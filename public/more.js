@@ -25,11 +25,12 @@ async function userCard(username, anchor) {
   const joined = new Date(u.created_at).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
   const row = (id, icon, text, extra = '') => `<button class="uc-row" id="${id}"><span class="uc-ri">${icon ? ic(icon) : ''}</span><span class="grow">${text}</span>${extra}</button>`;
   el.innerHTML = `<div class="uc-banner" style="background:${bannerBg(u.banner, u.username)}"></div>
-    <div class="uc-av">${avatar(u.username, 84, d.online)}</div>
+    <div class="uc-av">${avatar(u.username, 84, ps({ online: d.online, presence: u.presence }))}</div>
     <div class="uc-body">
       <div class="uc-name">${esc(u.username)}</div>
-      <div class="uc-sub">${d.online ? 'В сети' : 'Не в сети'}${u.status ? ' • ' + esc(u.status) : ''}</div>
-      ${u.activity ? `<div class="uc-act">${ic('mic')}<span>Играет в <b>${esc(u.activity)}</b></span></div>` : ''}
+      <div class="uc-sub">${{ online: 'В сети', dnd: 'Занят', invisible: 'Невидимка', offline: 'Не в сети' }[d.online || d.is_me ? (u.presence || 'online') : 'offline']}</div>
+      ${u.status ? `<div class="uc-status-t">${esc(u.status)}</div>` : ''}
+      ${u.activity ? `<div class="uc-act">${ic('gamepad')}<span>Играет в <b>${esc(u.activity)}</b></span></div>` : ''}
       ${roles.length ? `<div class="uc-roles">${roles.map((r) => `<span class="role-chip"><i style="background:${r.color || 'var(--muted)'}"></i>${esc(r.name)}</span>`).join('')}</div>` : ''}
       <div class="uc-box"><div class="uc-box-t">О себе</div>${u.bio ? `<div class="uc-bio">${linkify(u.bio, true)}</div>` : '<div class="muted small">Пока ничего</div>'}
         <div class="muted small uc-meta"><span id="uc-fol">${d.followers}</span> подписчиков • с нами с ${joined}</div></div>
@@ -37,6 +38,7 @@ async function userCard(username, anchor) {
         ${d.is_me ? row('uc-edit', 'edit', 'Редактировать профиль') + row('uc-set', 'settings', 'Настройки') + row('uc-open', 'friends', 'Моя страница')
           : row('uc-dm', 'chat', 'Написать') + row('uc-fl', 'userplus', d.is_following ? 'Вы подписаны' : 'Подписаться') + row('uc-open', 'friends', 'Профиль')}
       </div>
+      ${d.is_me ? `<div class="uc-box uc-menu">${[['online', 'Онлайн', ''], ['dnd', 'Занят', 'Без звуков и уведомлений'], ['invisible', 'Невидимка', 'Другие видят, что тебя нет в сети']].map(([k, n, sub]) => `<button class="uc-row ${(u.presence || 'online') === k ? 'cur' : ''}" data-pres="${k}"><span class="uc-ri"><i class="pdot ${k}"></i></span><span class="grow">${n}${sub ? `<small>${sub}</small>` : ''}</span></button>`).join('')}</div>` : ''}
       <div class="uc-box uc-menu">${row('uc-id', '', 'Копировать ID пользователя', '<span class="uc-idb">ID</span>')}</div>
     </div>`;
   place();
@@ -44,6 +46,9 @@ async function userCard(username, anchor) {
   $$('#uc-open').onclick = () => { el.remove(); openProfile(u.username); };
   $$('#uc-edit')?.addEventListener('click', () => { el.remove(); settingsModal('profile'); });
   $$('#uc-set')?.addEventListener('click', () => { el.remove(); settingsModal(); });
+  el.querySelectorAll('[data-pres]').forEach((b) => (b.onclick = async () => {
+    try { await api('/profile', { method: 'PATCH', body: { presence: b.dataset.pres } }); S.user.presence = b.dataset.pres; renderMe(); el.remove(); userCard(username, anchor); } catch (er) { toast(er.message); }
+  }));
   $$('#uc-id').onclick = async () => { try { await navigator.clipboard.writeText(String(u.id)); toast('ID скопирован'); } catch { toast('ID: ' + u.id); } el.remove(); };
   $$('#uc-fl')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;

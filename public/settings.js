@@ -88,33 +88,37 @@ async function settingsModal(start) {
         box.querySelector('#ch-pass').onclick = () => accountModal('pass');
       } },
       { id: 'profile', label: 'Профиль', render: (box, ctx) => {
-        const orig = { bio: u.bio || '', status: u.status || '', banner: u.banner || '', key: u.avatar_key || '' };
+        const orig = { bio: u.bio || '', status: u.status || '', banner: u.banner || '', key: u.avatar_key || '', presence: u.presence || 'online', activity: u.activity || '', ttl: '0' };
         const cur = { ...orig };
         const prev = () => card(u.username, cur.key, cur.banner, cur.status, cur.bio);
         box.innerHTML = `<h2>Профиль</h2><div class="sx-two"><div class="sx-form">
           ${field('Аватар', `<div class="sx-av-row"><button id="av-pick">Загрузить</button><button class="ghost" id="av-del">Убрать</button></div><div class="muted small">JPG, PNG, GIF или WebP. Анимация — до 1,4 МБ.</div><input type="file" id="av-in" class="hidden" accept="image/jpeg,image/png,image/gif,image/webp">`)}
           ${field('Баннер', `<div class="sx-av-row"><button id="bn-pick">Загрузить картинку</button><button class="ghost" id="bn-del">Убрать</button></div><div class="muted small">JPG, PNG, GIF или WebP, лучше широкая. Без картинки используется цвет ниже.</div><input type="file" id="bn-in" class="hidden" accept="image/jpeg,image/png,image/gif,image/webp">`)}
           ${field('Цвет баннера', `<div class="sx-sw" id="sw">${SX_COLORS.map((c) => `<button type="button" class="sw" data-c="${c}" style="background:${c}" aria-label="${c}"></button>`).join('')}<label class="sw custom" title="Свой цвет"><input type="color" id="sw-in" value="${/^#/.test(cur.banner) ? cur.banner : '#3a3a3a'}">${ic('edit')}</label><button type="button" class="ghost mini" id="sw-reset">По умолчанию</button></div>`)}
-          ${field('Статус', '<input id="pf-status" maxlength="60" placeholder="Чем сейчас занят?">')}
+          ${field('Статус в сети', `<div class="st-row" id="pres">${[['online', 'Онлайн'], ['dnd', 'Занят'], ['invisible', 'Невидимка']].map(([k, n]) => `<button type="button" class="ghost pres-b" data-p="${k}"><i class="pdot ${k}"></i> ${n}</button>`).join('')}</div><div class="muted small">«Занят» отключает звуки и уведомления. «Невидимка» скрывает тебя из сети.</div>`)}
+          ${field('Текстовый статус', `<input id="pf-status" maxlength="80" placeholder="Чем сейчас занят?"><div class="st-emoji" id="st-emoji">${['😀', '😴', '🎮', '💻', '📚', '🎧', '🍕', '🔥'].map((e) => `<button type="button" data-e="${e}">${e}</button>`).join('')}</div><div class="st-row" style="margin-top:8px"><span class="muted small">Очистить через</span><select id="pf-ttl"><option value="0">Не очищать</option><option value="60">1 час</option><option value="240">4 часа</option><option value="1440">24 часа</option></select></div>`)}
+          ${field('Играет в…', '<input id="pf-act" maxlength="40" placeholder="Название игры">', 'Показывается в карточке и в «Активных контактах».')}
           ${field('О себе', '<textarea id="pf-bio" rows="4" maxlength="200" placeholder="Расскажи о себе"></textarea><div class="muted small" id="pf-cnt"></div>')}
           <div class="error" id="m-err"></div></div>
           <div class="sx-prev"><div class="sx-l">Предпросмотр</div><div id="pv">${prev()}</div></div></div>`;
         const $$ = (s) => box.querySelector(s);
-        $$('#pf-status').value = cur.status; $$('#pf-bio').value = cur.bio;
+        $$('#pf-status').value = cur.status; $$('#pf-bio').value = cur.bio; $$('#pf-act').value = cur.activity;
         const sync = () => {
           $$('#pv').innerHTML = prev();
           $$('#pf-cnt').textContent = `${cur.bio.length} / 200`;
           box.querySelectorAll('.sw[data-c]').forEach((b) => b.classList.toggle('on', b.dataset.c.toLowerCase() === (cur.banner || '').toLowerCase()));
-          const changed = ['bio', 'status', 'banner', 'key'].some((k) => cur[k] !== orig[k]);
+          box.querySelectorAll('.pres-b').forEach((b) => b.classList.toggle('on', b.dataset.p === cur.presence));
+          const changed = ['bio', 'status', 'banner', 'key', 'presence', 'activity', 'ttl'].some((k) => cur[k] !== orig[k]);
           if (changed) ctx.dirty(save, reset); else ctx.clean();
         };
-        const reset = () => { Object.assign(cur, orig); $$('#pf-status').value = cur.status; $$('#pf-bio').value = cur.bio; sync(); };
+        const reset = () => { Object.assign(cur, orig); $$('#pf-status').value = cur.status; $$('#pf-bio').value = cur.bio; $$('#pf-act').value = cur.activity; $$('#pf-ttl').value = cur.ttl; sync(); };
         const save = async () => {
           try {
-            const body = { bio: cur.bio, status: cur.status, banner: cur.banner };
+            const body = { bio: cur.bio, banner: cur.banner, presence: cur.presence, activity: cur.activity };
+            if (cur.status !== orig.status || cur.ttl !== orig.ttl) { body.status = cur.status; body.status_ttl = Number(cur.ttl); }
             if (cur.key !== orig.key) body.avatar_key = cur.key;
             await api('/profile', { method: 'PATCH', body });
-            Object.assign(S.user, { bio: cur.bio, status: cur.status, banner: cur.banner || null, avatar_key: cur.key || null });
+            Object.assign(S.user, { bio: cur.bio, status: cur.status, banner: cur.banner || null, avatar_key: cur.key || null, presence: cur.presence, activity: cur.activity || null });
             A[S.user.username] = S.user.avatar_key;
             Object.assign(u, S.user); Object.assign(orig, cur);
             renderMe(); ctx.clean(); toast('Профиль сохранён');
@@ -134,6 +138,10 @@ async function settingsModal(start) {
           try { cur.key = (await uploadMedia(f, 'avatar')).att_key; sync(); } catch (er) { $$('#m-err').textContent = er.message; }
           e.target.value = '';
         };
+        $$('#pres').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { cur.presence = b.dataset.p; sync(); } };
+        $$('#pf-ttl').onchange = (e) => { cur.ttl = e.target.value; sync(); };
+        $$('#pf-act').oninput = (e) => { cur.activity = e.target.value; sync(); };
+        $$('#st-emoji').onclick = (e) => { const b = e.target.closest('[data-e]'); if (!b) return; const i = $$('#pf-status'); i.value = (b.dataset.e + ' ' + i.value.replace(/^\p{Extended_Pictographic}\s*/u, '')).slice(0, 80); cur.status = i.value; sync(); };
         $$('#bn-pick').onclick = () => $$('#bn-in').click();
         $$('#bn-del').onclick = () => { if (/^m_/.test(cur.banner)) cur.banner = ''; sync(); };
         $$('#bn-in').onchange = async (e) => {
@@ -393,7 +401,7 @@ function tabMembers(box) {
   let open = null;
   const draw = () => {
     const roles = S.server.roles.filter((r) => !(r.perms & ~mine));
-    box.innerHTML = `<h2>Участники — ${S.server.members.length}</h2>${S.server.members.map((m) => `<div class="mrow"><div class="row">${avatar(m.username, 32, m.online)}
+    box.innerHTML = `<h2>Участники — ${S.server.members.length}</h2>${S.server.members.map((m) => `<div class="mrow"><div class="row">${avatar(m.username, 32, ps(m))}
       <div class="grow"><b style="${m.color ? 'color:' + m.color : ''}">${esc(m.username)}</b>${m.id === s.owner_id ? ' <span class="muted small">Владелец</span>' : ''}
       <div class="uc-roles">${m.roles.map((r) => `<span class="role-chip"><i style="background:${r.color || 'var(--muted)'}"></i>${esc(r.name)}</span>`).join('')}</div></div>
       ${can(PERM.ROLES) && S.server.roles.length ? `<button class="ghost mini" data-roles="${m.id}">Роли</button>` : ''}

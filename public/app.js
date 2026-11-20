@@ -11,9 +11,10 @@ function harvest(o) {
   for (const k in o) if (o[k] && typeof o[k] === 'object') harvest(o[k]);
 }
 const imgOk = (k) => !!k && (S.config.files || /^m_/.test(k));
+const ps = (o) => (o.presence === 'dnd' ? 'dnd' : o.presence === 'invisible' ? 'inv' : !!o.online);
 const avatar = (name, size = 32, online) => {
   const k = A[name];
-  const dot = online === undefined ? '' : `<i class="dot ${online ? 'on' : ''}"></i>`;
+  const dot = online === undefined ? '' : `<i class="dot ${online === true ? 'on' : online || ''}"></i>`;
   return `<div class="avatar ${imgOk(k) ? 'img' : ''}" style="background:${colorOf(name)};width:${size}px;height:${size}px;font-size:${size * 0.45}px">${imgOk(k) ? `<img src="${fileUrl(k)}" alt="" loading="lazy">` : esc(name[0]?.toUpperCase())}${dot}</div>`;
 };
 const fmtTime = (t) => new Date(t).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -39,6 +40,7 @@ const ICONS = {
   speaker: '<path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/>',
   send: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  gamepad: '<path d="M6 11h4M8 9v4M15 12h.01M18 10h.01M17.32 5H6.68a4 4 0 0 0-3.98 3.59C2.6 9.42 2 14.46 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.41-1.41A2 2 0 0 1 9.83 16h4.34a2 2 0 0 1 1.42.59L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.55-.6-6.58-.69-7.26A4 4 0 0 0 17.32 5z"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
   headphones: '<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>',
   headoff: '<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3M4 4l16 16"/>',
@@ -199,7 +201,7 @@ async function boot() {
 }
 function renderMe() {
   $('#me-name').textContent = S.user.username;
-  $('#me-avatar').outerHTML = avatar(S.user.username).replace('<div class="avatar', '<div id="me-avatar" class="avatar');
+  $('#me-avatar').outerHTML = avatar(S.user.username, 32, ps({ online: true, presence: S.user.presence })).replace('<div class="avatar', '<div id="me-avatar" class="avatar');
 }
 
 async function loadServers() {
@@ -298,7 +300,7 @@ async function refreshHome() {
 function renderHomeSide() {
   $('#side-list').innerHTML =
     `<div class="item ${!S.channel ? 'on' : ''}" data-act="friends">${ic('friends')} Друзья</div><div class="cat">Личные сообщения</div>` +
-    S.dms.map((d) => `<div class="item ${S.channel?.id === d.id ? 'on' : ''}" data-dm="${d.id}" data-name="${esc(d.username)}">${avatar(d.username, 24, d.online)}<span class="grow">${esc(d.username)}</span>${badge(S.unread[d.id])}</div>`).join('');
+    S.dms.map((d) => `<div class="item ${S.channel?.id === d.id ? 'on' : ''}" data-dm="${d.id}" data-name="${esc(d.username)}">${avatar(d.username, 24, ps(d))}<span class="grow">${esc(d.username)}</span>${badge(S.unread[d.id])}</div>`).join('');
   $('#side-list').onclick = (e) => {
     const t = e.target.closest('.item');
     if (!t) return;
@@ -337,7 +339,7 @@ function showFriends() {
   }
   const list = S.friends.filter((f) => S.homeTab === 'friends' ? f.status === 'friend' && f.online : S.homeTab === 'all' ? f.status === 'friend' : f.status !== 'friend');
   v.innerHTML = `<div class="home">${list.length ? list.map((f) => `
-    <div class="row">${avatar(f.username, 36, f.status === 'friend' ? f.online : undefined)}<div class="grow"><b>${esc(f.username)}</b>${f.status === 'outgoing' ? '<div class="muted">Запрос отправлен</div>' : ''}</div>
+    <div class="row">${avatar(f.username, 36, f.status === 'friend' ? ps(f) : undefined)}<div class="grow"><b>${esc(f.username)}</b>${f.status === 'outgoing' ? '<div class="muted">Запрос отправлен</div>' : ''}</div>
     ${f.status === 'friend' ? `<button data-dm="${f.id}">Сообщение</button>` : ''}
     ${f.status === 'incoming' ? `<button data-acc="${f.id}">Принять</button>` : ''}
     <button class="ghost" data-del="${f.id}" aria-label="Удалить">${ic('close')}</button></div>`).join('') : '<div class="empty"><b>Здесь пока пусто</b>Добавь друзей по нику</div>'}</div>`;
@@ -354,7 +356,7 @@ function renderActiveContacts() {
   setLayout(true);
   const on = S.friends.filter((f) => f.status === 'friend' && f.online);
   $('#members').innerHTML = `<h3 class="ac-title">Активные контакты</h3>` + (on.length
-    ? `<div class="ac-list">${on.map((f) => `<div class="ac-row" data-user="${esc(f.username)}">${avatar(f.username, 36, true)}<div class="grow"><b>${esc(f.username)}</b><div class="muted small">${f.activity ? esc(f.activity) : 'В сети'}</div></div><button class="icon-btn" data-dm="${f.id}" title="Написать" aria-label="Написать">${ic('chat')}</button></div>`).join('')}</div>`
+    ? `<div class="ac-list">${on.map((f) => `<div class="ac-row" data-user="${esc(f.username)}">${avatar(f.username, 36, ps(f))}<div class="grow"><b>${esc(f.username)}</b><div class="muted small">${f.activity ? esc(f.activity) : 'В сети'}</div></div><button class="icon-btn" data-dm="${f.id}" title="Написать" aria-label="Написать">${ic('chat')}</button></div>`).join('')}</div>`
     : `<div class="ac-empty"><b>Пока тихо…</b><div class="muted small">Когда кто-то из друзей зайдёт в сеть или во что-то сыграет, он появится здесь.</div></div>`);
   $('#members').onclick = async (e) => {
     const b = e.target.closest('[data-dm]');
@@ -411,7 +413,7 @@ function renderServerSide() {
 function renderMembers() {
   const { members, server } = S.server;
   const owner = can(PERM.KICK);
-  const row = (m) => `<div class="item mem ${m.online ? '' : 'off'}" data-user="${esc(m.username)}">${avatar(m.username, 32, m.online)}<span class="mn"${m.color ? ` style="color:${m.color}"` : ''}>${esc(m.username)}${m.id === server.owner_id ? ' <span class="muted small">· владелец</span>' : ''}</span>${owner && m.id !== S.user.id && m.id !== server.owner_id ? `<button class="icon-btn kick" data-kick="${m.id}" title="Исключить" aria-label="Исключить">${ic('close')}</button>` : ''}</div>`;
+  const row = (m) => `<div class="item mem ${m.online ? '' : 'off'}" data-user="${esc(m.username)}">${avatar(m.username, 32, ps(m))}<span class="mn"${m.color ? ` style="color:${m.color}"` : ''}>${esc(m.username)}${m.id === server.owner_id ? ' <span class="muted small">· владелец</span>' : ''}</span>${owner && m.id !== S.user.id && m.id !== server.owner_id ? `<button class="icon-btn kick" data-kick="${m.id}" title="Исключить" aria-label="Исключить">${ic('close')}</button>` : ''}</div>`;
   const on = members.filter((m) => m.online), off = members.filter((m) => !m.online);
   $('#members').innerHTML = (on.length ? `<div class="cat">В сети — ${on.length}</div>` + on.map(row).join('') : '') + (off.length ? `<div class="cat">Не в сети — ${off.length}</div>` + off.map(row).join('') : '');
   $('#members').onclick = async (e) => {

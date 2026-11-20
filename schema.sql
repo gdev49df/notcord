@@ -198,3 +198,7 @@ CREATE TABLE IF NOT EXISTS calls (channel_id INTEGER PRIMARY KEY, caller_id INTE
 CREATE TABLE IF NOT EXISTS link_previews (url TEXT PRIMARY KEY, title TEXT, description TEXT, image TEXT, site TEXT, fetched_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS media (key TEXT PRIMARY KEY, owner_id INTEGER NOT NULL, type TEXT NOT NULL, data TEXT NOT NULL, size INTEGER NOT NULL, created_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_media_owner ON media(owner_id);
+-- 0006
+ALTER TABLE users ADD COLUMN status_until INTEGER;
+ALTER TABLE users ADD COLUMN activity_since INTEGER;
+CREATE TABLE IF NOT EXISTS user_games (user_id INTEGER NOT NULL, name TEXT NOT NULL, first_at INTEGER NOT NULL, PRIMARY KEY (user_id, name));

@@ -13,6 +13,10 @@ export const isAdmin = (env, me) =>
   me.id === 1 || (env.ADMIN_USERS || '').toLowerCase().split(',').map((s) => s.trim()).filter(Boolean).includes(me.username.toLowerCase());
 
 export const isOnline = (t) => (t || 0) > Date.now() - ONLINE_MS;
+// что видят другие: невидимка = не в сети; «занят» = dnd
+export const presenceState = (presence, lastSeen) => (presence === 'invisible' || !isOnline(lastSeen) ? 'offline' : presence === 'dnd' ? 'dnd' : 'online');
+// текстовый статус с автоочисткой
+export const liveStatus = (u) => (u.status_until && u.status_until < Date.now() ? null : u.status || null);
 
 // ---- уведомления
 export async function notify(env, userId, type, actorId, postId = null, channelId = null) {
@@ -157,6 +161,14 @@ async function tgVerify(data, token) {
   return hex(await crypto.subtle.sign('HMAC', key, enc.encode(check))) === hash;
 }
 
+// публичный вид пользователя: статус с учётом срока, невидимка и «играет в» только для онлайна
+export function presentUser(u, viewer) {
+  const self = viewer && u.id === viewer.id;
+  const st = presenceState(u.presence, u.last_seen);
+  const { status_until, activity_since, presence, activity, ...rest } = u;
+  return { ...rest, status: liveStatus(u), presence: self ? (presence || 'online') : st, activity: self || st !== 'offline' ? activity || null : null, activity_since: self || st !== 'offline' ? activity_since || null : null, status_until: self ? status_until || null : undefined };
+}
+
 // ---- публичные роуты (без авторизации)
 export async function handlePublic(c) {
   const { req, env, p, m, json, err, now, rand, hashPass, newSession } = c;
@@ -207,7 +219,21 @@ export async function handleSocial(c) {
       if (b.banner && !/^#[0-9a-f]{6}$/i.test(b.banner) && !/^m_[a-f0-9]{10,40}$/.test(b.banner)) return err('неверный баннер');
       sets.push('banner = ?'); binds.push(b.banner || null);
     }
-    if (typeof b.status === 'string') { sets.push('status = ?'); binds.push(b.status.trim().slice(0, 60) || null); }
+    if (typeof b.status === 'string') {
+      const text = b.status.trim().slice(0, 80);
+      const ttl = Number(b.status_ttl) || 0; // минуты, 0 = не очищать
+      sets.push('status = ?', 'status_until = ?');
+      binds.push(text || null, text && ttl > 0 ? Date.now() + Math.min(ttl, 1440) * 60000 : null);
+    }
+    if (typeof b.presence === 'string') {
+      if (!['online', 'dnd', 'invisible'].includes(b.presence)) return err('неверный статус');
+      sets.push('presence = ?'); binds.push(b.presence);
+    }
+    if (typeof b.activity === 'string') {
+      const game = b.activity.trim().slice(0, 40);
+      sets.push('activity = ?', 'activity_since = ?'); binds.push(game || null, game ? Date.now() : null);
+      if (game) await env.DB.prepare('INSERT OR IGNORE INTO user_games (user_id, name, first_at) VALUES (?,?,?)').bind(me.id, game.toLowerCase(), Date.now()).run();
+    }
     if (!sets.length) return err('нечего менять');
     await env.DB.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).bind(...binds, me.id).run();
     return json({ ok: true });
@@ -336,7 +362,7 @@ export async function handleSocial(c) {
   // --- люди
   if ((mt = p.match(/^\/users\/([^/]+)$/)) && m === 'GET') {
     const u = await env.DB.prepare(
-      'SELECT id, username, created_at, bio, avatar_key, banner, status, last_seen, pinned_post_id FROM users WHERE username = ? AND banned_at IS NULL'
+      'SELECT id, username, created_at, bio, avatar_key, banner, status, status_until, presence, activity, activity_since, last_seen, pinned_post_id FROM users WHERE username = ? AND banned_at IS NULL'
     ).bind(decodeURIComponent(mt[1])).first();
     if (!u) return err('пользователь не найден', 404);
     const [fr, fg, isf, close] = await Promise.all([
@@ -346,15 +372,15 @@ export async function handleSocial(c) {
       env.DB.prepare('SELECT 1 x FROM close_friends WHERE user_id=? AND friend_id=?').bind(me.id, u.id).first(),
     ]);
     if (url.searchParams.get('card')) {
-      const { pinned_post_id, last_seen, ...user } = u;
-      return json({ user, followers: fr.n, following: fg.n, is_following: !!isf, is_me: u.id === me.id, is_close: !!close, online: isOnline(last_seen) });
+      const { pinned_post_id, last_seen, ...user } = presentUser(u, me);
+      return json({ user, followers: fr.n, following: fg.n, is_following: !!isf, is_me: u.id === me.id, is_close: !!close, online: user.presence !== 'offline' && user.presence !== 'invisible' });
     }
     const pinned = u.pinned_post_id ? await getPost(env, me, u.pinned_post_id) : null;
     const posts = await queryPosts(env, me, 'p.user_id = ? AND p.parent_id IS NULL AND p.id != ?', [u.id, u.pinned_post_id || 0]);
-    const { pinned_post_id, last_seen, ...user } = u;
+    const { pinned_post_id, last_seen, ...user } = presentUser(u, me);
     return json({
       user, followers: fr.n, following: fg.n, is_following: !!isf, is_me: u.id === me.id,
-      is_close: !!close, online: isOnline(last_seen), pinned, posts,
+      is_close: !!close, online: user.presence !== 'offline' && user.presence !== 'invisible', pinned, posts,
     });
   }
   if ((mt = p.match(/^\/users\/(\d+)\/follow$/)) && m === 'POST') {

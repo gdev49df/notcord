@@ -33,7 +33,7 @@ async function syncNow() {
   recountUnread();
   if (S.view.page === 'notif' && d.notifications > prevNotif) openNotifications(true);
   const dmNow = Object.values(S.dmUnread).reduce((a, b) => a + b, 0);
-  if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+  if (document.hidden && S.user.presence !== 'dnd' && 'Notification' in window && Notification.permission === 'granted') {
     if (dmNow > prevDm) new Notification("Earth's Network", { body: 'Новое личное сообщение', tag: 'dm' });
     if (S.notif > prevNotif) {
       try {

@@ -1,7 +1,7 @@
 // notcord — worker: api + websocket (durable objects) + файлы (r2)
 
 import { P, ALL_PERMS, permsOf, audit } from './perms.js';
-import { handlePublic, handleSocial, enrichMessages, notify, mentionedUsers, isAdmin, isOnline } from './social.js';
+import { handlePublic, handleSocial, enrichMessages, notify, mentionedUsers, isAdmin, isOnline, presenceState, presentUser } from './social.js';
 
 const enc = new TextEncoder();
 const MAX_FILE = 25 * 1024 * 1024;
@@ -28,7 +28,7 @@ async function authUser(req, env, url) {
   if (!token && url) token = url.searchParams.get('token');
   if (!token) return null;
   return await env.DB.prepare(
-    'SELECT u.id, u.username, u.avatar_key, u.bio, u.banner, u.status FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND u.banned_at IS NULL'
+    'SELECT u.id, u.username, u.avatar_key, u.bio, u.banner, u.status, u.status_until, u.presence, u.activity FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND u.banned_at IS NULL'
   ).bind(token).first();
 }
 
@@ -162,7 +162,7 @@ async function handleApi(req, env, url) {
   const me = await authUser(req, env);
   if (!me) return err('не авторизован', 401);
 
-  if (p === '/me') return json({ user: { ...me, is_admin: isAdmin(env, me) } });
+  if (p === '/me') return json({ user: { ...me, status: me.status_until && me.status_until < Date.now() ? null : me.status, is_admin: isAdmin(env, me) } });
   if (p === '/account/password' && m === 'POST') {
     const { old_password, new_password } = await req.json();
     const u = await env.DB.prepare('SELECT pass_hash, pass_salt FROM users WHERE id=?').bind(me.id).first();
@@ -227,7 +227,7 @@ async function handleApi(req, env, url) {
     if (m === 'GET') {
       const [chs, mems, roles, mroles, myPerms, chRoles, myChan] = await Promise.all([
         env.DB.prepare('SELECT id, name, type, topic, slowmode, is_private FROM channels WHERE server_id=? ORDER BY id').bind(sid).all(),
-        env.DB.prepare('SELECT u.id, u.username, u.avatar_key, u.last_seen FROM members mm JOIN users u ON u.id=mm.user_id WHERE mm.server_id=? ORDER BY u.username').bind(sid).all(),
+        env.DB.prepare('SELECT u.id, u.username, u.avatar_key, u.last_seen, u.presence, u.activity FROM members mm JOIN users u ON u.id=mm.user_id WHERE mm.server_id=? ORDER BY u.username').bind(sid).all(),
         env.DB.prepare('SELECT id, name, color, perms, position FROM roles WHERE server_id=? ORDER BY position, id').bind(sid).all(),
         env.DB.prepare('SELECT mr.user_id, mr.role_id FROM member_roles mr JOIN roles r ON r.id = mr.role_id WHERE mr.server_id=? ORDER BY r.position, r.id').bind(sid).all(),
         permsOf(env, me.id, sid),
@@ -241,7 +241,7 @@ async function handleApi(req, env, url) {
       const byUser = {};
       for (const x of mroles.results) (byUser[x.user_id] ||= []).push(x.role_id);
       return json({ server: s, channels: visible.map((c) => ({ ...c, is_private: !!c.is_private, role_ids: (myPerms & P.CHANNELS) ? (crMap[c.id] || []) : undefined })), roles: roles.results, my_perms: myPerms,
-        members: mems.results.map(({ last_seen, ...u }) => ({ ...u, role_ids: byUser[u.id] || [], online: isOnline(last_seen) })) });
+        members: mems.results.map(({ last_seen, presence, activity, ...u }) => { const st = presenceState(presence, last_seen); return { ...u, role_ids: byUser[u.id] || [], online: st !== 'offline', presence: st, activity: st === 'offline' ? null : activity || null }; }) });
     }
     if (m === 'PATCH') {
       if (!((await permsOf(env, me.id, sid)) & P.SERVER)) return err('недостаточно прав', 403);
@@ -520,7 +520,7 @@ async function handleApi(req, env, url) {
     const { results } = await env.DB.prepare(
       `SELECT f.status, f.user_a, f.user_b, ua.username AS name_a, ub.username AS name_b,
         ua.avatar_key AS av_a, ub.avatar_key AS av_b, ua.last_seen AS ls_a, ub.last_seen AS ls_b,
-        ua.activity AS act_a, ub.activity AS act_b
+        ua.activity AS act_a, ub.activity AS act_b, ua.presence AS pr_a, ub.presence AS pr_b
        FROM friends f JOIN users ua ON ua.id=f.user_a JOIN users ub ON ub.id=f.user_b
        WHERE f.user_a=? OR f.user_b=?`
     ).bind(me.id, me.id).all();
@@ -530,8 +530,9 @@ async function handleApi(req, env, url) {
         id: mine ? r.user_b : r.user_a,
         username: mine ? r.name_b : r.name_a,
         avatar_key: mine ? r.av_b : r.av_a,
-        online: isOnline(mine ? r.ls_b : r.ls_a),
-        activity: (mine ? r.act_b : r.act_a) || null,
+        online: presenceState(mine ? r.pr_b : r.pr_a, mine ? r.ls_b : r.ls_a) !== 'offline',
+        presence: presenceState(mine ? r.pr_b : r.pr_a, mine ? r.ls_b : r.ls_a),
+        activity: presenceState(mine ? r.pr_b : r.pr_a, mine ? r.ls_b : r.ls_a) === 'offline' ? null : (mine ? r.act_b : r.act_a) || null,
         status: r.status === 'accepted' ? 'friend' : mine ? 'outgoing' : 'incoming',
       };
     });
@@ -564,13 +565,13 @@ async function handleApi(req, env, url) {
   // --- лс
   if (p === '/dms' && m === 'GET') {
     const { results } = await env.DB.prepare(
-      `SELECT c.id, u.id AS user_id, u.username, u.avatar_key, u.last_seen FROM dm_members me
+      `SELECT c.id, u.id AS user_id, u.username, u.avatar_key, u.last_seen, u.presence FROM dm_members me
        JOIN channels c ON c.id = me.channel_id
        JOIN dm_members o ON o.channel_id = c.id AND o.user_id != me.user_id
        JOIN users u ON u.id = o.user_id
        WHERE me.user_id = ? ORDER BY c.id DESC`
     ).bind(me.id).all();
-    return json({ dms: results.map(({ last_seen, ...d }) => ({ ...d, online: isOnline(last_seen) })) });
+    return json({ dms: results.map(({ last_seen, presence, ...d }) => { const st = presenceState(presence, last_seen); return { ...d, online: st !== 'offline', presence: st }; }) });
   }
   if (p === '/dms' && m === 'POST') {
     const { userId } = await req.json();
