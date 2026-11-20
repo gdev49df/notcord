@@ -12,6 +12,7 @@ async function userCard(username, anchor) {
     if (x + w > innerWidth - 8) x = Math.max(8, r.left - w - 10);
     if (x < 8) x = Math.max(8, Math.min(innerWidth - w - 8, r.left));
     let y = Math.min(Math.max(8, r.top - 20), innerHeight - h - 8);
+    if (anchor.closest('.me-bar')) { x = r.left; y = Math.max(8, r.top - h - 12); }
     el.style.left = x + 'px'; el.style.top = y + 'px';
   };
   place();
@@ -21,26 +22,33 @@ async function userCard(username, anchor) {
   const u = d.user;
   const member = S.server?.members?.find((m) => m.username === u.username);
   const roles = member?.roles || [];
+  const joined = new Date(u.created_at).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+  const row = (id, icon, text, extra = '') => `<button class="uc-row" id="${id}"><span class="uc-ri">${icon ? ic(icon) : ''}</span><span class="grow">${text}</span>${extra}</button>`;
   el.innerHTML = `<div class="uc-banner" style="background:${u.banner || colorOf(u.username)}"></div>
-    <div class="uc-av">${avatar(u.username, 80, d.online)}</div>
+    <div class="uc-av">${avatar(u.username, 84, d.online)}</div>
     <div class="uc-body">
       <div class="uc-name">${esc(u.username)}</div>
-      ${u.status ? `<div class="uc-status">${esc(u.status)}</div>` : ''}
-      ${u.activity ? `<div class="uc-status">Играет в ${esc(u.activity)}</div>` : ''}
+      <div class="uc-sub">${d.online ? 'В сети' : 'Не в сети'}${u.status ? ' • ' + esc(u.status) : ''}</div>
+      ${u.activity ? `<div class="uc-act">${ic('mic')}<span>Играет в <b>${esc(u.activity)}</b></span></div>` : ''}
       ${roles.length ? `<div class="uc-roles">${roles.map((r) => `<span class="role-chip"><i style="background:${r.color || 'var(--muted)'}"></i>${esc(r.name)}</span>`).join('')}</div>` : ''}
-      ${u.bio ? `<div class="uc-sep"></div><div class="sx-l">О себе</div><div class="uc-bio">${linkify(u.bio, true)}</div>` : ''}
-      <div class="uc-sep"></div>
-      <div class="muted small"><span id="uc-fol">${d.followers}</span> подписчиков · с нами с ${new Date(u.created_at).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</div>
-      <div class="uc-btns">${d.is_me ? '<button id="uc-edit">Изменить профиль</button>' : `<button id="uc-dm">Написать</button><button class="ghost" id="uc-fl">${d.is_following ? 'Вы подписаны' : 'Подписаться'}</button>`}<button class="ghost" id="uc-open">Профиль</button></div>
+      <div class="uc-box"><div class="uc-box-t">О себе</div>${u.bio ? `<div class="uc-bio">${linkify(u.bio, true)}</div>` : '<div class="muted small">Пока ничего</div>'}
+        <div class="muted small uc-meta"><span id="uc-fol">${d.followers}</span> подписчиков • с нами с ${joined}</div></div>
+      <div class="uc-box uc-menu">
+        ${d.is_me ? row('uc-edit', 'edit', 'Редактировать профиль') + row('uc-set', 'settings', 'Настройки') + row('uc-open', 'friends', 'Моя страница')
+          : row('uc-dm', 'chat', 'Написать') + row('uc-fl', 'userplus', d.is_following ? 'Вы подписаны' : 'Подписаться') + row('uc-open', 'friends', 'Профиль')}
+      </div>
+      <div class="uc-box uc-menu">${row('uc-id', '', 'Копировать ID пользователя', '<span class="uc-idb">ID</span>')}</div>
     </div>`;
   place();
   const $$ = (s) => el.querySelector(s);
   $$('#uc-open').onclick = () => { el.remove(); openProfile(u.username); };
   $$('#uc-edit')?.addEventListener('click', () => { el.remove(); settingsModal('profile'); });
+  $$('#uc-set')?.addEventListener('click', () => { el.remove(); settingsModal(); });
+  $$('#uc-id').onclick = async () => { try { await navigator.clipboard.writeText(String(u.id)); toast('ID скопирован'); } catch { toast('ID: ' + u.id); } el.remove(); };
   $$('#uc-fl')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     const r = await api(`/users/${u.id}/follow`, { method: 'POST' });
-    btn.textContent = r.following ? 'Вы подписаны' : 'Подписаться'; $$('#uc-fol').textContent = r.followers;
+    btn.querySelector('.grow').textContent = r.following ? 'Вы подписаны' : 'Подписаться'; $$('#uc-fol').textContent = r.followers;
   });
   $$('#uc-dm')?.addEventListener('click', async () => {
     el.remove();

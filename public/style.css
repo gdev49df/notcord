@@ -677,3 +677,31 @@ button.sx-tab.danger:hover{background:color-mix(in srgb,var(--red) 14%,transpare
 .home:has(>.empty){max-width:none;display:flex;flex-direction:column}
 .home>.empty{margin:auto;text-align:center}
 .me-bar #me-avatar,.me-bar .me-name{cursor:pointer}.me-bar .me-name:hover{text-decoration:underline}
+.me-bar .icon-btn.off{color:var(--red)}
+/* карточка профиля как в Discord */
+.ucard{width:340px;border-radius:14px}
+.uc-banner{height:104px}
+.uc-av{margin:-46px 0 0 16px;width:96px;height:96px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center}
+.uc-body{padding:8px 14px 14px;display:flex;flex-direction:column;gap:8px}
+.uc-name{font-weight:800;font-size:20px;padding:0 4px}
+.uc-sub{color:var(--muted);font-size:14px;margin-top:-6px;padding:0 4px}
+.uc-act{display:flex;align-items:center;gap:8px;padding:0 4px;font-size:14px}.uc-act .i{width:16px;height:16px}
+.uc-box{background:var(--deep);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.uc-box-t{font-weight:700;font-size:13px;margin-bottom:6px}
+.uc-meta{margin-top:8px}
+.uc-menu{padding:4px}
+.uc-row{width:100%;justify-content:flex-start;gap:12px;background:none;color:var(--text);font-weight:500;padding:10px;border-radius:9px;text-align:left}
+.uc-row:hover{background:var(--raise);filter:none}
+.uc-ri{width:20px;display:flex;justify-content:center}.uc-ri .i{width:18px;height:18px}
+.uc-idb{font-size:11px;font-weight:800;border:1.5px solid var(--muted);border-radius:5px;padding:0 4px;color:var(--muted)}
+.me-bar{gap:2px;padding:0 8px}.me-bar .me-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:6px}
+.me-bar .icon-btn{padding:6px}.me-bar .icon-btn .i{width:20px;height:20px}
+/* скелетоны загрузки */
+.skel-list{display:flex;flex-direction:column;gap:12px;padding:12px 14px}.skel-list.pad{padding:20px 24px;gap:22px}
+.skel-row{display:flex;align-items:center;gap:12px}.skel-row.top{align-items:flex-start}
+.skel-av,.skel-bar{display:block;background:var(--raise);animation:skel 1.4s ease-in-out infinite}
+.skel-av{width:32px;height:32px;border-radius:50%;flex:none}.skel-av.big{width:40px;height:40px}
+.skel-bar{height:14px;border-radius:8px}.skel-row:not(.top) .skel-bar{height:16px;border-radius:10px}
+.skel-col{display:flex;flex-direction:column;gap:8px;flex:1}
+@keyframes skel{50%{opacity:.55}}
+@media(prefers-reduced-motion:reduce){.skel-av,.skel-bar{animation:none}}

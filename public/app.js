@@ -39,6 +39,8 @@ const ICONS = {
   send: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  headphones: '<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>',
+  headoff: '<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3M4 4l16 16"/>',
   micoff: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M4 4l16 16"/>',
   close: '<path d="M6 6l12 12M18 6 6 18"/>',
   userplus: '<circle cx="10" cy="8" r="3.5"/><path d="M3.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/>',
@@ -170,7 +172,6 @@ function logout(silent) {
   S.token = null;
   showAuth();
 }
-$('#logout').onclick = () => logout();
 
 // ---------- запуск
 async function boot() {
@@ -281,6 +282,7 @@ async function openHome() {
   renderRail();
   $('#members').innerHTML = '';
   $('#side-head').innerHTML = '<span>Личные сообщения</span>';
+  $('#side-list').innerHTML = skelRows(9);
   await refreshHome();
   showFriends();
 }
@@ -569,6 +571,7 @@ function rerenderMsg(m) {
 }
 
 async function loadMessages(cid) {
+  $('#msgs').innerHTML = skelMsgs();
   const d = await api(`/channels/${cid}/messages`);
   if (S.channel?.id !== cid) return;
   const box = $('#msgs');
@@ -724,6 +727,7 @@ async function joinVoice(ch) {
   catch { return alert('Нет доступа к микрофону'); }
   const ws = new WebSocket(wsUrl('voice', ch.id));
   S.voice = { channelId: ch.id, name: ch.name, stream, ws, peers: {}, pcs: {}, muted: false };
+  applyAudio();
   const V = S.voice;
   V.ws.onmessage = async (e) => {
     const d = JSON.parse(e.data);
@@ -795,12 +799,34 @@ function watchSpeaking(stream, tileId) {
 }
 
 function toggleMute() {
-  const V = S.voice;
-  if (!V) return;
-  V.muted = !V.muted;
-  V.stream.getAudioTracks().forEach((t) => (t.enabled = !V.muted));
-  renderVoiceView(); updateVoiceBar();
+  S.muted = !S.muted;
+  if (!S.muted) S.deaf = false;
+  applyAudio();
 }
+function toggleDeaf() {
+  S.deaf = !S.deaf;
+  applyAudio();
+}
+function applyAudio() {
+  const V = S.voice;
+  if (V) { V.muted = !!(S.muted || S.deaf); V.stream.getAudioTracks().forEach((t) => (t.enabled = !V.muted)); }
+  document.querySelectorAll('#audio-sink audio, #audio-sink video').forEach((a) => (a.muted = !!S.deaf));
+  renderMeAudio();
+  if (V) { renderVoiceView(); updateVoiceBar(); }
+}
+const skelRows = (n) => `<div class="skel-list">${Array.from({ length: n }, (_, i) => `<div class="skel-row" style="opacity:${1 - i * 0.09}"><i class="skel-av"></i><i class="skel-bar" style="width:${55 + (i * 37) % 40}%"></i></div>`).join('')}</div>`;
+const skelMsgs = () => `<div class="skel-list pad">${Array.from({ length: 6 }, (_, i) => `<div class="skel-row top" style="opacity:${1 - i * 0.12}"><i class="skel-av big"></i><div class="skel-col"><i class="skel-bar" style="width:${18 + (i * 13) % 14}%"></i><i class="skel-bar" style="width:${40 + (i * 29) % 45}%"></i></div></div>`).join('')}</div>`;
+function renderMeAudio() {
+  const m = $('#mic-btn'), d = $('#deaf-btn');
+  if (!m || !d) return;
+  const mo = !!(S.muted || S.deaf);
+  m.innerHTML = ic(mo ? 'micoff' : 'mic'); m.classList.toggle('off', mo); m.title = mo ? 'Включить микрофон' : 'Выключить микрофон';
+  d.innerHTML = ic(S.deaf ? 'headoff' : 'headphones'); d.classList.toggle('off', !!S.deaf); d.title = S.deaf ? 'Включить звук' : 'Выключить звук';
+}
+document.addEventListener('DOMContentLoaded', () => {
+  $('#mic-btn').onclick = toggleMute; $('#deaf-btn').onclick = toggleDeaf; renderMeAudio();
+  new MutationObserver(() => { if (S.deaf) document.querySelectorAll('#audio-sink audio').forEach((a) => (a.muted = true)); }).observe($('#audio-sink'), { childList: true, subtree: true });
+});
 
 function leaveVoice() {
   const V = S.voice;
