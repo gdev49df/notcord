@@ -120,18 +120,13 @@ a{color:var(--text);text-decoration:underline;text-decoration-color:var(--muted)
 .msgs>.empty{margin:auto}
 .msg{display:flex;gap:10px;margin-top:12px;position:relative;align-items:flex-end;animation:pop .45s var(--spring)}
 .msg.cont{margin-top:3px}
-.msg.mine{justify-content:flex-end}
 .msg .gutter{width:36px;flex:none}
 .msg .body{min-width:0;max-width:min(560px,78%);display:flex;flex-direction:column;align-items:flex-start}
-.msg.mine .body{align-items:flex-end}
 .msg .who{font-size:12.5px;font-weight:600;margin:0 0 3px 12px}
 .bubble{background:var(--bubble);padding:8px 14px;border-radius:20px 20px 20px 6px;white-space:pre-wrap;word-break:break-word;line-height:1.45}
-.msg.cont:not(.mine) .bubble{border-top-left-radius:6px}
-.msg.mine .bubble{background:var(--sky);color:var(--on-sky);border-radius:20px 20px 6px 20px}
-.msg.mine.cont .bubble{border-top-right-radius:6px}
-.msg.mine .bubble a{color:var(--on-sky);text-decoration-color:var(--on-sky)}
+.msg.cont .bubble{border-top-left-radius:6px}
 .msg .del{position:absolute;top:-6px;opacity:0;padding:4px;border-radius:10px;background:var(--surface);color:var(--muted);border:1px solid var(--line);transition:opacity .15s}
-.msg:not(.mine) .del{right:8px}.msg.mine .del{left:8px}
+.msg .del{right:8px}
 .msg:hover .del,.msg .del:focus-visible{opacity:1}.msg .del:hover{background:var(--red);color:#fff;filter:none}
 .msg .del .i{width:14px;height:14px}
 .msg img.att{max-width:min(380px,100%);max-height:320px;border-radius:18px;margin-top:4px;display:block}
@@ -270,7 +265,6 @@ kbd{font:600 12px ui-monospace,monospace;background:var(--raise);border:1px soli
 .msg .who a{color:var(--muted);text-decoration:none}.msg .who a:hover{color:var(--text);text-decoration:underline}
 .msg .quote{font-size:12.5px;color:var(--muted);border-left:3px solid var(--line);padding:2px 10px;margin:0 0 3px 6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .msg .quote b{color:var(--text)}
-.msg.mine .quote{border-left:0;border-right:3px solid var(--line);margin:0 6px 3px 0}
 .msg.flash .bubble{animation:flash 1.2s}
 @keyframes flash{30%{box-shadow:0 0 0 4px color-mix(in srgb,var(--sky) 40%,transparent)}}
 .bubble .edited{font-size:11px;opacity:.6}
@@ -281,7 +275,7 @@ a.mention,a.tag{font-weight:600;text-decoration:none;color:inherit;background:co
 .react{padding:2px 9px;border-radius:999px;background:var(--raise);color:var(--text);font-size:13px;font-weight:600;gap:4px;border:1px solid transparent}
 .react.on{border-color:var(--sky)}
 .mtools{position:absolute;top:-14px;display:flex;gap:2px;opacity:0;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:2px;transition:opacity .15s;z-index:2}
-.msg:not(.mine) .mtools{right:8px}.msg.mine .mtools{left:8px}
+.msg .mtools{left:6px}
 .msg:hover .mtools,.msg:focus-within .mtools{opacity:1;pointer-events:auto}
 .mtools button{background:none;color:var(--muted);padding:5px;border-radius:9px}
 .mtools button:hover{background:var(--raise);color:var(--text);filter:none}
@@ -527,3 +521,23 @@ button.sx-tab{background:none;box-shadow:none}
 button.sx-tab.danger{color:var(--red);background:none}
 button.sx-tab:hover{background:var(--raise)}
 button.sx-tab.danger:hover{background:color-mix(in srgb,var(--red) 14%,transparent)}
+
+/* логотип */
+.side-head .logo{height:26px;width:auto;display:block;color:var(--text);--bg:var(--deep)}
+.wordmark{background:none;-webkit-background-clip:initial;background-clip:initial;color:var(--text);font-size:inherit;letter-spacing:0;line-height:1}
+.logo-big{width:clamp(260px,34vw,460px);height:auto;display:block;color:var(--text);--bg:var(--night)}
+
+/* панель действий — у самого сообщения */
+.msg .body{position:relative}
+.mtools{top:-16px}
+.msg:not(.cont) .mtools{top:-2px}
+
+/* все сообщения слева, как в Discord; свои — просто с ником и аватаркой */
+.msg.own .bubble{background:var(--bubble);color:var(--text);border-radius:20px 20px 20px 6px}
+.msg.own.cont .bubble{border-top-left-radius:6px}
+.msg.own .bubble a{color:inherit}
+.msg.own .who a{color:var(--text)}
+.msg .mtools{left:6px;right:auto}
+
+#mem-tg.on{color:var(--text)}#mem-tg:not(.on){color:var(--muted)}
+.app{transition:grid-template-columns .45s var(--spring)}

@@ -1,6 +1,6 @@
 // earth's network — лента, посты, профили
 
-function setLayout(withRight) { $('#app').classList.toggle('no-members', !withRight); }
+function setLayout(withRight) { $('#app').classList.toggle('no-members', !withRight || (S.view.type === 'server' && !!S.prefs.hideMembers)); }
 
 function timeAgo(t) {
   const d = (Date.now() - t) / 1000;
@@ -119,7 +119,7 @@ function bindComposer(onSubmit) {
 // ---- боковые панели
 function feedSide() {
   const pg = S.view.type === 'feed' ? S.view.page : '';
-  $('#side-head').innerHTML = '<span>earth\'s network</span>';
+  $('#side-head').innerHTML = LOGO;
   const items = [['feed', 'лента', 'globe', ['all', 'following', 'clips'].includes(pg)], ['search', 'поиск', 'search', pg === 'search'], ['me', 'моя страница', 'chat', pg === 'me']];
   if (S.user.is_admin) items.push(['admin', 'жалобы', 'shield', pg === 'admin']);
   items.push(['settings', 'настройки', 'settings', false]);
