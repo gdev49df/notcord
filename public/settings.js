@@ -91,7 +91,7 @@ async function settingsModal(start) {
         box.querySelector('#ch-pass').onclick = () => accountModal('pass');
       } },
       { id: 'profile', label: 'Профиль', render: (box, ctx) => {
-        const orig = { bio: u.bio || '', status: u.status || '', banner: u.banner || '', key: u.avatar_key || '', presence: u.presence || 'online', activity: u.activity || '', ttl: '0', pronouns: u.pronouns || '', link_tg: u.link_tg || '', link_tt: u.link_tt || '', link_ig: u.link_ig || '' };
+        const orig = { bio: u.bio || '', status: u.status || '', banner: u.banner || '', key: u.avatar_key || '', presence: u.presence || 'online', activity: u.activity || '', music: u.music || '', ttl: '0', pronouns: u.pronouns || '', link_tg: u.link_tg || '', link_tt: u.link_tt || '', link_ig: u.link_ig || '' };
         const cur = { ...orig };
         const prev = () => card(u.username, cur.key, cur.banner, cur.status, cur.bio, { pronouns: cur.pronouns, link_tg: cur.link_tg, link_tt: cur.link_tt, link_ig: cur.link_ig });
         box.innerHTML = `<h2>Профиль</h2><div class="sx-two"><div class="sx-form">
@@ -104,27 +104,29 @@ async function settingsModal(start) {
           ${field('Статус в сети', `<div class="st-row" id="pres">${[['online', 'Онлайн'], ['dnd', 'Занят'], ['invisible', 'Невидимка']].map(([k, n]) => `<button type="button" class="ghost pres-b" data-p="${k}"><i class="pdot ${k}"></i> ${n}</button>`).join('')}</div><div class="muted small">«Занят» отключает звуки и уведомления. «Невидимка» скрывает тебя из сети.</div>`)}
           ${field('Текстовый статус', `<input id="pf-status" maxlength="80" placeholder="Чем сейчас занят?"><div class="st-emoji" id="st-emoji">${['😀', '😴', '🎮', '💻', '📚', '🎧', '🍕', '🔥'].map((e) => `<button type="button" data-e="${e}">${e}</button>`).join('')}</div><div class="st-row" style="margin-top:8px"><span class="muted small">Очистить через</span><select id="pf-ttl"><option value="0">Не очищать</option><option value="60">1 час</option><option value="240">4 часа</option><option value="1440">24 часа</option></select></div>`)}
           ${field('Играет в…', '<input id="pf-act" maxlength="40" placeholder="Название игры">', 'Показывается в карточке и в «Активных контактах».')}
+          ${field('Музыка сейчас', '<input id="pf-mus" maxlength="80" placeholder="Исполнитель — трек">', 'Показывается в карточке строкой «Слушает». Очисти поле, чтобы убрать.')}
+          ${field('Значки', '<div id="bdg-box" class="muted small">Загрузка…</div>', 'Нажми на полученный значок, чтобы закрепить его в карточке (до 5).')}
           ${field('О себе', '<textarea id="pf-bio" rows="4" maxlength="200" placeholder="Расскажи о себе"></textarea><div class="muted small" id="pf-cnt"></div>')}
           <div class="error" id="m-err"></div></div>
           <div class="sx-prev"><div class="sx-l">Предпросмотр</div><div id="pv">${prev()}</div></div></div>`;
         const $$ = (s) => box.querySelector(s);
-        $$('#pf-status').value = cur.status; $$('#pf-bio').value = cur.bio; $$('#pf-act').value = cur.activity; $$('#pf-pron').value = cur.pronouns; box.querySelectorAll('[data-lk]').forEach((i) => (i.value = cur[i.dataset.lk]));
+        $$('#pf-status').value = cur.status; $$('#pf-bio').value = cur.bio; $$('#pf-act').value = cur.activity; $$('#pf-mus').value = cur.music; $$('#pf-pron').value = cur.pronouns; box.querySelectorAll('[data-lk]').forEach((i) => (i.value = cur[i.dataset.lk]));
         const sync = () => {
           $$('#pv').innerHTML = prev();
           $$('#pf-cnt').textContent = `${cur.bio.length} / 200`;
           box.querySelectorAll('.sw[data-c]').forEach((b) => b.classList.toggle('on', b.dataset.c.toLowerCase() === (cur.banner || '').toLowerCase()));
           box.querySelectorAll('.pres-b').forEach((b) => b.classList.toggle('on', b.dataset.p === cur.presence));
-          const changed = ['bio', 'status', 'banner', 'key', 'presence', 'activity', 'ttl', 'pronouns', 'link_tg', 'link_tt', 'link_ig'].some((k) => cur[k] !== orig[k]);
+          const changed = ['bio', 'status', 'banner', 'key', 'presence', 'activity', 'music', 'ttl', 'pronouns', 'link_tg', 'link_tt', 'link_ig'].some((k) => cur[k] !== orig[k]);
           if (changed) ctx.dirty(save, reset); else ctx.clean();
         };
-        const reset = () => { Object.assign(cur, orig); $$('#pf-status').value = cur.status; $$('#pf-bio').value = cur.bio; $$('#pf-act').value = cur.activity; $$('#pf-ttl').value = cur.ttl; $$('#pf-pron').value = cur.pronouns; box.querySelectorAll('[data-lk]').forEach((i) => (i.value = cur[i.dataset.lk])); sync(); };
+        const reset = () => { Object.assign(cur, orig); $$('#pf-status').value = cur.status; $$('#pf-bio').value = cur.bio; $$('#pf-act').value = cur.activity; $$('#pf-mus').value = cur.music; $$('#pf-ttl').value = cur.ttl; $$('#pf-pron').value = cur.pronouns; box.querySelectorAll('[data-lk]').forEach((i) => (i.value = cur[i.dataset.lk])); sync(); };
         const save = async () => {
           try {
-            const body = { bio: cur.bio, banner: cur.banner, presence: cur.presence, activity: cur.activity, pronouns: cur.pronouns, link_tg: cur.link_tg, link_tt: cur.link_tt, link_ig: cur.link_ig };
+            const body = { bio: cur.bio, banner: cur.banner, presence: cur.presence, activity: cur.activity, music: cur.music, pronouns: cur.pronouns, link_tg: cur.link_tg, link_tt: cur.link_tt, link_ig: cur.link_ig };
             if (cur.status !== orig.status || cur.ttl !== orig.ttl) { body.status = cur.status; body.status_ttl = Number(cur.ttl); }
             if (cur.key !== orig.key) body.avatar_key = cur.key;
             await api('/profile', { method: 'PATCH', body });
-            Object.assign(S.user, { bio: cur.bio, status: cur.status, banner: cur.banner || null, avatar_key: cur.key || null, presence: cur.presence, activity: cur.activity || null, pronouns: cur.pronouns || null, link_tg: cur.link_tg || null, link_tt: cur.link_tt || null, link_ig: cur.link_ig || null });
+            Object.assign(S.user, { bio: cur.bio, status: cur.status, banner: cur.banner || null, avatar_key: cur.key || null, presence: cur.presence, activity: cur.activity || null, music: cur.music || null, pronouns: cur.pronouns || null, link_tg: cur.link_tg || null, link_tt: cur.link_tt || null, link_ig: cur.link_ig || null });
             A[S.user.username] = S.user.avatar_key;
             try { Object.assign(S.user, (await api('/me')).user); } catch {}
             Object.assign(cur, { link_tg: S.user.link_tg || '', link_tt: S.user.link_tt || '', link_ig: S.user.link_ig || '' });
@@ -150,6 +152,23 @@ async function settingsModal(start) {
         $$('#pres').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { cur.presence = b.dataset.p; sync(); } };
         $$('#pf-ttl').onchange = (e) => { cur.ttl = e.target.value; sync(); };
         $$('#pf-act').oninput = (e) => { cur.activity = e.target.value; sync(); };
+        $$('#pf-mus').oninput = (e) => { cur.music = e.target.value; sync(); };
+        (async () => {
+          const bx = $$('#bdg-box'); let d;
+          try { d = await api('/badges'); } catch { bx.textContent = 'Не удалось загрузить'; return; }
+          const draw = () => {
+            bx.innerHTML = ['Показ экрана', 'Игры', 'Голос', 'Особые'].map((g) => `<div class="bdg-g"><div class="muted">${g}</div><div class="bdg-grid">${BADGES.filter((b) => b.group === g).map((b) => {
+              const has = d.earned.includes(b.id), pin = d.pinned.includes(b.id), v = b.stat ? d.stats[b.stat] : 0;
+              return `<button type="button" class="bdg-c ${has ? '' : 'lock'} ${pin ? 'pin' : ''}" data-b="${b.id}" ${has ? '' : 'disabled'}>${bdgEl(b.id, true)}<span class="bdg-n">${esc(b.name)}</span><span class="bdg-d">${has ? (pin ? 'Закреплён' : esc(b.desc)) : b.stat ? `${Math.min(Math.floor(v), b.goal)} / ${b.goal.toLocaleString('ru-RU')}${b.unit ? ' ' + b.unit : ''}` : esc(b.desc)}</span></button>`; }).join('')}</div></div>`).join('');
+          };
+          draw();
+          bx.onclick = async (e) => {
+            const c = e.target.closest('[data-b]'); if (!c || c.disabled) return;
+            const id = c.dataset.b, list = d.pinned.includes(id) ? d.pinned.filter((x) => x !== id) : [...d.pinned, id];
+            if (list.length > 5) return toast('Можно закрепить не больше 5 значков');
+            try { await api('/profile', { method: 'PATCH', body: { pinned_badges: list } }); d.pinned = list; draw(); } catch (er) { toast(er.message); }
+          };
+        })();
         $$('#st-emoji').onclick = (e) => { const b = e.target.closest('[data-e]'); if (!b) return; const i = $$('#pf-status'); i.value = (b.dataset.e + ' ' + i.value.replace(/^\p{Extended_Pictographic}\s*/u, '')).slice(0, 80); cur.status = i.value; sync(); };
         $$('#pf-pron').oninput = (e) => { cur.pronouns = e.target.value; sync(); };
         box.querySelectorAll('[data-lk]').forEach((i) => (i.oninput = () => { cur[i.dataset.lk] = i.value; sync(); }));

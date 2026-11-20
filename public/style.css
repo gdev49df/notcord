@@ -750,3 +750,18 @@ button.sx-tab.danger:hover{background:color-mix(in srgb,var(--red) 14%,transpare
 .note-ic{width:38px;height:38px;border-radius:50%;background:var(--raise);display:flex;align-items:center;justify-content:center;flex:none}.note-ic .i{width:20px;height:20px}
 .note-x{padding:4px;opacity:.6}.note-x .i{width:14px;height:14px}
 @media(prefers-reduced-motion:reduce){.note{animation:none}}
+
+/* значки */
+.bdg{--g1:#888;--g2:#555;display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(145deg,var(--g1),var(--g2));color:#111;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
+.bdg .i{width:14px;height:14px;stroke-width:2.2}.bdg.big{width:44px;height:44px}.bdg.big .i{width:22px;height:22px}
+.bdg.t0{--g1:#ffe28a;--g2:#ff9a3c;border-radius:9px}
+.bdg.t1{--g1:#d8955a;--g2:#8a4f22}.bdg.t2{--g1:#e6e9ee;--g2:#8d95a0}.bdg.t3{--g1:#ffe066;--g2:#c98700;border-radius:9px}
+.bdg.t4{--g1:#52e8a5;--g2:#0e8a58;border-radius:9px;color:#05301e}.bdg.t5{--g1:#7dbbff;--g2:#2c4fd8;color:#fff;border-radius:0;clip-path:polygon(50% 0,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%)}
+.bdg.t6{--g1:#ff6ad8;--g2:#7b3cff;color:#fff;border-radius:0;clip-path:polygon(50% 0,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);animation:bdgp 2.4s ease-in-out infinite}
+@keyframes bdgp{50%{filter:brightness(1.35) saturate(1.2)}}
+@media (prefers-reduced-motion:reduce){.bdg.t6{animation:none}}
+.bdg-row{display:flex;flex-wrap:wrap;gap:6px;padding:0 4px}
+.bdg-g{margin-top:10px}.bdg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:6px}
+.bdg-c{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:12px;background:var(--panel2,rgba(255,255,255,.05));border:1px solid transparent;text-align:center;color:inherit;transition:transform .25s cubic-bezier(.3,1.5,.5,1),border-color .15s}
+.bdg-c:not(.lock):hover{transform:translateY(-2px)}.bdg-c.pin{border-color:var(--text,#fff)}
+.bdg-c.lock{opacity:.4;filter:grayscale(1)}.bdg-n{font-size:12px;font-weight:600}.bdg-d{font-size:11px;color:var(--muted)}

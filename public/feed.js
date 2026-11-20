@@ -437,7 +437,7 @@ async function openProfile(username) {
   try { d = await api(`/users/${encodeURIComponent(username)}`); } catch (e) { v.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
   const u = d.user;
   v.innerHTML = `<div class="feed"><div class="profile"><div class="pr-banner" style="background:${bannerBg(u.banner, u.username)}"></div>${avatar(u.username, 80, ps({ online: d.online, presence: u.presence }))}
-    <div class="pr-main"><h2>${esc(u.username)}${u.pronouns ? ` <span class="pron">${esc(u.pronouns)}</span>` : ''}</h2>${socialLinks(u) ? `<div class="soc-row">${socialLinks(u)}</div>` : ''}${u.status ? `<div class="pr-status">${esc(u.status)}</div>` : ''}
+    <div class="pr-main"><h2>${esc(u.username)}${u.pronouns ? ` <span class="pron">${esc(u.pronouns)}</span>` : ''}</h2>${socialLinks(u) ? `<div class="soc-row">${socialLinks(u)}</div>` : ''}${u.status ? `<div class="pr-status">${esc(u.status)}</div>` : ''}${typeof badgeRow === 'function' && d.badges?.length ? badgeRow(d.badges) : ''}
       ${u.bio ? `<div class="bio">${linkify(u.bio, true)}</div>` : ''}
       <div class="muted"><span id="pr-followers">${d.followers}</span> подписчиков · ${d.following} подписок${d.online ? ' · в сети' : ''}</div>
       <div class="muted">С нами с ${new Date(u.created_at).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</div></div>

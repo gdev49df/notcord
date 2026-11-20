@@ -31,6 +31,8 @@ async function userCard(username, anchor) {
       <div class="uc-sub">${{ online: 'В сети', dnd: 'Занят', invisible: 'Невидимка', offline: 'Не в сети' }[d.online || d.is_me ? (u.presence || 'online') : 'offline']}</div>
       ${u.status ? `<div class="uc-status-t">${esc(u.status)}</div>` : ''}
       ${u.activity ? `<div class="uc-act">${ic('gamepad')}<span>Играет в <b>${esc(u.activity)}</b></span></div>` : ''}
+      ${u.music ? `<div class="uc-act">${ic('music')}<span>Слушает <b>${esc(u.music)}</b></span></div>` : ''}
+      ${badgeRow(d.badges)}
       ${roles.length ? `<div class="uc-roles">${roles.map((r) => `<span class="role-chip"><i style="background:${r.color || 'var(--muted)'}"></i>${esc(r.name)}</span>`).join('')}</div>` : ''}
       ${socialLinks(u) ? `<div class="soc-row">${socialLinks(u)}</div>` : ''}
       <div class="uc-box"><div class="uc-box-t">О себе</div>${u.bio ? `<div class="uc-bio">${linkify(u.bio, true)}</div>` : '<div class="muted small">Пока ничего</div>'}
@@ -65,6 +67,18 @@ async function userCard(username, anchor) {
   const off = (ev) => { if (!el.contains(ev.target)) { el.remove(); document.removeEventListener('pointerdown', off, true); } };
   setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
 }
+
+// ---- значки
+const BADGES = (() => {
+  const L = [];
+  [['Новичок эфира', 10], ['Ведущий', 50], ['Эфирщик', 100], ['Режиссёр', 500], ['Мастер эфира', 1000], ['Легенда эфира', 5000]].forEach(([n, h], i) => L.push({ id: 'share' + h, name: n, desc: `${h.toLocaleString('ru-RU')} ч показа экрана`, icon: 'screen', tier: i + 1, group: 'Показ экрана', stat: 'share_h', goal: h, unit: 'ч' }));
+  [['Игрок', 3], ['Коллекционер', 10], ['Геймер', 25], ['Знаток игр', 100], ['Архивариус', 500], ['Вселенная игр', 1000]].forEach(([n, c], i) => L.push({ id: 'games' + c, name: n, desc: c >= 1000 ? '1000+ разных игр' : `${c} разных игр`, icon: 'gamepad', tier: i + 1, group: 'Игры', stat: 'games', goal: c, unit: '' }));
+  [['Спикер', 10, 2], ['Оратор', 50, 3], ['Рупор', 100, 5], ['Голос сервера', 500, 6]].forEach(([n, h, t]) => L.push({ id: 'speaker' + h, name: n, desc: `${h} ч в голосовых каналах`, icon: 'mic', tier: t, group: 'Голос', stat: 'voice_h', goal: h, unit: 'ч' }));
+  L.push({ id: 'early', name: 'Ранняя пташка', desc: 'Зарегистрирован(а) в первый месяц', icon: 'sun', tier: 0, group: 'Особые' });
+  return L;
+})();
+const bdgEl = (id, big) => { const b = BADGES.find((x) => x.id === id); return b ? `<span class="bdg t${b.tier}${big ? ' big' : ''}" title="${esc(b.name)} — ${esc(b.desc)}">${ic(b.icon)}</span>` : ''; };
+const badgeRow = (ids) => (ids && ids.length ? `<div class="bdg-row">${ids.map((i) => bdgEl(i)).join('')}</div>` : '');
 
 // ---- всплывающие окна под шапкой (закреплённые, ветки, уведомления канала)
 function closePops() { document.querySelectorAll('.hpop').forEach((x) => x.remove()); }

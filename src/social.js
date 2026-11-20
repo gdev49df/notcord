@@ -165,8 +165,27 @@ async function tgVerify(data, token) {
 export function presentUser(u, viewer) {
   const self = viewer && u.id === viewer.id;
   const st = presenceState(u.presence, u.last_seen);
-  const { status_until, activity_since, presence, activity, ...rest } = u;
-  return { ...rest, status: liveStatus(u), presence: self ? (presence || 'online') : st, activity: self || st !== 'offline' ? activity || null : null, activity_since: self || st !== 'offline' ? activity_since || null : null, status_until: self ? status_until || null : undefined };
+  const { status_until, activity_since, presence, activity, music, music_since, pinned_badges, ...rest } = u;
+  return { ...rest, status: liveStatus(u), presence: self ? (presence || 'online') : st, activity: self || st !== 'offline' ? activity || null : null, activity_since: self || st !== 'offline' ? activity_since || null : null, status_until: self ? status_until || null : undefined, music: self || st !== 'offline' ? music || null : null };
+}
+
+
+// ---- значки: считаются из статистики, закрепляются до 5
+const SHARE_H = [10, 50, 100, 500, 1000, 5000], GAME_N = [3, 10, 25, 100, 500, 1000], SPEAK_H = [10, 50, 100, 500];
+export async function badgeData(env, u) {
+  const [st, g, first] = await Promise.all([
+    env.DB.prepare('SELECT voice_sec, share_sec FROM user_stats WHERE user_id = ?').bind(u.id).first(),
+    env.DB.prepare('SELECT COUNT(*) n FROM user_games WHERE user_id = ?').bind(u.id).first(),
+    env.DB.prepare('SELECT MIN(created_at) t FROM users').first(),
+  ]);
+  const share_h = (st?.share_sec || 0) / 3600, voice_h = (st?.voice_sec || 0) / 3600, games = g?.n || 0;
+  const earned = [];
+  SHARE_H.forEach((h) => share_h >= h && earned.push('share' + h));
+  GAME_N.forEach((n) => games >= n && earned.push('games' + n));
+  SPEAK_H.forEach((h) => voice_h >= h && earned.push('speaker' + h));
+  if (u.created_at <= (first?.t || 0) + 30 * 86400000) earned.push('early');
+  const pinned = (u.pinned_badges || '').split(',').filter((x) => earned.includes(x)).slice(0, 5);
+  return { earned, pinned, stats: { share_h: Math.floor(share_h * 10) / 10, voice_h: Math.floor(voice_h * 10) / 10, games } };
 }
 
 // ---- публичные роуты (без авторизации)
@@ -243,9 +262,32 @@ export async function handleSocial(c) {
       sets.push('activity = ?', 'activity_since = ?'); binds.push(game || null, game ? Date.now() : null);
       if (game) await env.DB.prepare('INSERT OR IGNORE INTO user_games (user_id, name, first_at) VALUES (?,?,?)').bind(me.id, game.toLowerCase(), Date.now()).run();
     }
+    if (typeof b.music === 'string') {
+      const t = b.music.trim().slice(0, 80);
+      sets.push('music = ?', 'music_since = ?'); binds.push(t || null, t ? Date.now() : null);
+    }
+    if (Array.isArray(b.pinned_badges)) {
+      const ids = b.pinned_badges.filter((x) => typeof x === 'string' && /^[a-z]+\d*$/.test(x)).slice(0, 5);
+      sets.push('pinned_badges = ?'); binds.push(ids.join(',') || null);
+    }
     if (!sets.length) return err('нечего менять');
     await env.DB.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).bind(...binds, me.id).run();
     return json({ ok: true });
+  }
+
+  if (p === '/stats/tick' && m === 'POST') {
+    const b = await body();
+    const row = await env.DB.prepare('SELECT last_tick FROM user_stats WHERE user_id = ?').bind(me.id).first();
+    const t = Date.now(), gap = row ? t - row.last_tick : 1e9;
+    if (gap < 40000) return json({ ok: true });
+    const add = gap > 120000 ? 60 : Math.min(Math.round(gap / 1000), 75);
+    await env.DB.prepare('INSERT INTO user_stats (user_id, voice_sec, share_sec, last_tick) VALUES (?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET voice_sec = voice_sec + ?, share_sec = share_sec + ?, last_tick = ?')
+      .bind(me.id, add, b.share ? add : 0, t, add, b.share ? add : 0, t).run();
+    return json({ ok: true });
+  }
+  if (p === '/badges' && m === 'GET') {
+    const u = await env.DB.prepare('SELECT id, created_at, pinned_badges FROM users WHERE id = ?').bind(me.id).first();
+    return json(await badgeData(env, u));
   }
 
   // --- лента
@@ -371,7 +413,7 @@ export async function handleSocial(c) {
   // --- люди
   if ((mt = p.match(/^\/users\/([^/]+)$/)) && m === 'GET') {
     const u = await env.DB.prepare(
-      'SELECT id, username, created_at, bio, avatar_key, banner, pronouns, link_tg, link_tt, link_ig, status, status_until, presence, activity, activity_since, last_seen, pinned_post_id FROM users WHERE username = ? AND banned_at IS NULL'
+      'SELECT id, username, created_at, bio, avatar_key, banner, pronouns, link_tg, link_tt, link_ig, status, status_until, presence, activity, activity_since, music, pinned_badges, last_seen, pinned_post_id FROM users WHERE username = ? AND banned_at IS NULL'
     ).bind(decodeURIComponent(mt[1])).first();
     if (!u) return err('пользователь не найден', 404);
     const [fr, fg, isf, close] = await Promise.all([
@@ -382,13 +424,15 @@ export async function handleSocial(c) {
     ]);
     if (url.searchParams.get('card')) {
       const { pinned_post_id, last_seen, ...user } = presentUser(u, me);
-      return json({ user, followers: fr.n, following: fg.n, is_following: !!isf, is_me: u.id === me.id, is_close: !!close, online: user.presence !== 'offline' && user.presence !== 'invisible' });
+      const bd = await badgeData(env, u);
+      return json({ badges: bd.pinned, user, followers: fr.n, following: fg.n, is_following: !!isf, is_me: u.id === me.id, is_close: !!close, online: user.presence !== 'offline' && user.presence !== 'invisible' });
     }
     const pinned = u.pinned_post_id ? await getPost(env, me, u.pinned_post_id) : null;
     const posts = await queryPosts(env, me, 'p.user_id = ? AND p.parent_id IS NULL AND p.id != ?', [u.id, u.pinned_post_id || 0]);
     const { pinned_post_id, last_seen, ...user } = presentUser(u, me);
+    const bd = await badgeData(env, u);
     return json({
-      user, followers: fr.n, following: fg.n, is_following: !!isf, is_me: u.id === me.id,
+      badges: bd.earned, user, followers: fr.n, following: fg.n, is_following: !!isf, is_me: u.id === me.id,
       is_close: !!close, online: user.presence !== 'offline' && user.presence !== 'invisible', pinned, posts,
     });
   }

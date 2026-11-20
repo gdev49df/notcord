@@ -3,6 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  music TEXT, music_since INTEGER, pinned_badges TEXT,
   username TEXT NOT NULL UNIQUE COLLATE NOCASE,
   pass_hash TEXT NOT NULL,
   pass_salt TEXT NOT NULL,
@@ -201,6 +202,7 @@ CREATE INDEX IF NOT EXISTS idx_media_owner ON media(owner_id);
 -- 0006
 ALTER TABLE users ADD COLUMN status_until INTEGER;
 ALTER TABLE users ADD COLUMN activity_since INTEGER;
+CREATE TABLE IF NOT EXISTS user_stats (user_id INTEGER PRIMARY KEY, voice_sec INTEGER NOT NULL DEFAULT 0, share_sec INTEGER NOT NULL DEFAULT 0, last_tick INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS user_games (user_id INTEGER NOT NULL, name TEXT NOT NULL, first_at INTEGER NOT NULL, PRIMARY KEY (user_id, name));
 -- 0007
 ALTER TABLE users ADD COLUMN pronouns TEXT;

@@ -40,6 +40,8 @@ const ICONS = {
   speaker: '<path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/>',
   send: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  music: '<path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>',
   gamepad: '<path d="M6 11h4M8 9v4M15 12h.01M18 10h.01M17.32 5H6.68a4 4 0 0 0-3.98 3.59C2.6 9.42 2 14.46 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.41-1.41A2 2 0 0 1 9.83 16h4.34a2 2 0 0 1 1.42.59L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.55-.6-6.58-.69-7.26A4 4 0 0 0 17.32 5z"/>',
   soc_tg: '<path d="M21 4 3 11l5 2 2 6 3-4 4 3z"/><path d="m8 13 9-6"/>',
   soc_tt: '<path d="M14 4v10.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M14 4c.3 2.2 1.8 3.7 4 4"/>',
@@ -779,6 +781,7 @@ async function joinVoice(ch) {
   S.voice = { channelId: ch.id, name: ch.name, stream, ws, peers: {}, pcs: {}, muted: false };
   applyAudio();
   const V = S.voice;
+  V.tick = setInterval(() => api('/stats/tick', { body: { share: !!V.screen } }).catch(() => {}), 60000);
   V.ws.onmessage = async (e) => {
     const d = JSON.parse(e.data);
     if (d.type === 'welcome') {
@@ -882,6 +885,7 @@ function leaveVoice() {
   const V = S.voice;
   if (!V) return;
   S.voice = null;
+  clearInterval(V.tick);
   try { V.ws.onclose = null; V.ws.close(); } catch {}
   Object.values(V.pcs).forEach((pc) => pc.close());
   stopShare?.(true);
