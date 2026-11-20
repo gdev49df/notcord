@@ -472,7 +472,7 @@ async function openProfile(username) {
 async function openServerFeed() {
   if (!S.server) return;
   const { server } = S.server;
-  const owner = server.owner_id === S.user.id;
+  const owner = can(PERM.SERVER);
   closeWs(); S.channel = null; S.serverFeed = true;
   setLayout(true); renderServerSide(); renderRail();
   $('#main-head').innerHTML = `${burger()}<span class="muted">${ic('globe')}</span> <span class="grow">лента · ${esc(server.name)}</span>`;

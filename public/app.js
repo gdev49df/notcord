@@ -80,6 +80,13 @@ const ICONS = {
 };
 const ic = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
 
+const PERM = { MESSAGES: 1, KICK: 2, CHANNELS: 4, ROLES: 8, SERVER: 16 };
+const can = (bits) => !!(S.server && (S.server.my_perms & bits));
+function normServer() {
+  const sv = S.server; if (!sv) return;
+  const byId = Object.fromEntries((sv.roles || []).map((r) => [r.id, r]));
+  sv.members.forEach((m) => { m.roles = (m.role_ids || []).map((i) => byId[i]).filter(Boolean); m.color = m.roles.find((r) => r.color)?.color || null; });
+}
 const LOGO = `<svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 573 76" role="img" aria-label="Earth's Network" color="currentColor"><circle cx="34" cy="38.0" r="30" fill="none" stroke="currentColor" stroke-width="3.2"/>
 <ellipse cx="34" cy="38.0" rx="12.0" ry="30" fill="none" stroke="currentColor" stroke-width="3.2"/>
 <path d="M4 38.0H64" stroke="currentColor" stroke-width="3.2"/>
@@ -333,6 +340,7 @@ async function openServer(id, channelId) {
   closeWs();
   S.view = { type: 'server' };
   S.server = await api(`/servers/${id}`);
+  normServer();
   const chs = S.server.channels;
   const target = chs.find((c) => c.id === channelId) || chs.find((c) => c.type === 'text');
   renderRail();
@@ -345,15 +353,16 @@ async function openServer(id, channelId) {
 function renderServerSide() {
   const { server, channels } = S.server;
   const owner = server.owner_id === S.user.id;
-  $('#side-head').innerHTML = `<span>${esc(server.name)}</span><span><button class="icon-btn" id="inv" title="пригласить" aria-label="пригласить">${ic('userplus')}</button>${owner ? `<button class="icon-btn" id="srv-set" title="настройки сервера" aria-label="настройки сервера">${ic('settings')}</button>` : ''}<button class="icon-btn" id="leave" title="${owner ? 'удалить сервер' : 'выйти'}" aria-label="меню сервера">${ic('more')}</button></span>`;
+  const canCh = can(PERM.CHANNELS);
+  $('#side-head').innerHTML = `<span>${esc(server.name)}</span><span><button class="icon-btn" id="inv" title="пригласить" aria-label="пригласить">${ic('userplus')}</button>${can(PERM.SERVER | PERM.ROLES | PERM.KICK | PERM.CHANNELS) ? `<button class="icon-btn" id="srv-set" title="настройки сервера" aria-label="настройки сервера">${ic('settings')}</button>` : ''}<button class="icon-btn" id="leave" title="${owner ? 'удалить сервер' : 'выйти'}" aria-label="меню сервера">${ic('more')}</button></span>`;
   $('#inv').onclick = inviteModal;
-  if (owner) $('#srv-set').onclick = serverSettingsModal;
+  if ($('#srv-set')) $('#srv-set').onclick = serverSettingsModal;
   $('#leave').onclick = async () => {
     if (!confirm(owner ? 'удалить сервер навсегда?' : 'выйти с сервера?')) return;
     await api(`/servers/${server.id}`, { method: 'DELETE' }); await loadServers(); openHome();
   };
-  const group = (type, title) => `<div class="cat"><span>${title}</span>${owner ? `<button data-add="${type}" title="Создать канал" aria-label="Создать канал">${ic('plus')}</button>` : ''}</div>` +
-    channels.filter((c) => c.type === type).map((c) => `<div class="item ${S.channel?.id === c.id ? 'on' : ''}" data-ch="${c.id}">${ic(type === 'text' ? 'hash' : 'speaker')} <span class="grow">${esc(c.name)}</span>${owner ? `<button class="icon-btn ch-gear" data-gear="${c.id}" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}${badge(S.unread[c.id])}</div>` +
+  const group = (type, title) => `<div class="cat"><span>${title}</span>${canCh ? `<button data-add="${type}" title="Создать канал" aria-label="Создать канал">${ic('plus')}</button>` : ''}</div>` +
+    channels.filter((c) => c.type === type).map((c) => `<div class="item ${S.channel?.id === c.id ? 'on' : ''}" data-ch="${c.id}">${ic(type === 'text' ? 'hash' : 'speaker')} <span class="grow">${esc(c.name)}</span>${canCh ? `<button class="icon-btn ch-gear" data-gear="${c.id}" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}${badge(S.unread[c.id])}</div>` +
       (type === 'voice' ? `<div class="voice-users" id="vu-${c.id}">${(S.voiceUsers[c.id] || []).map((n) => `<div>• ${esc(n)}</div>`).join('')}</div>` : '')).join('');
   $('#side-list').innerHTML = `<div class="item ${S.serverFeed ? 'on' : ''}" data-sfeed="1">${ic('globe')} <span class="grow">лента сервера</span></div>` + group('text', 'текстовые каналы') + group('voice', 'голосовые каналы');
   $('#side-list').onclick = (e) => {
@@ -371,10 +380,10 @@ function renderServerSide() {
 
 function renderMembers() {
   const { members, server } = S.server;
-  const owner = server.owner_id === S.user.id;
+  const owner = can(PERM.KICK);
   const online = members.filter((m) => m.online).length;
   $('#members').innerHTML = `<div class="cat">участники — ${members.length}${online ? ` · в сети ${online}` : ''}</div>` + members.map((m) =>
-    `<div class="item" data-user="${esc(m.username)}">${avatar(m.username, 24, m.online)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(m.username)}${m.id === server.owner_id ? ' <span class="muted" style="font-size:12px">· владелец</span>' : ''}</span>${owner && m.id !== S.user.id ? `<button class="icon-btn" data-kick="${m.id}" title="исключить" aria-label="исключить">${ic('close')}</button>` : ''}</div>`).join('');
+    `<div class="item" data-user="${esc(m.username)}">${avatar(m.username, 24, m.online)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis${m.color ? ';color:' + m.color : ''}">${esc(m.username)}${m.id === server.owner_id ? ' <span class="muted" style="font-size:12px">· владелец</span>' : ''}</span>${owner && m.id !== S.user.id && m.id !== server.owner_id ? `<button class="icon-btn" data-kick="${m.id}" title="исключить" aria-label="исключить">${ic('close')}</button>` : ''}</div>`).join('');
   $('#members').onclick = async (e) => {
     const k = e.target.closest('[data-kick]');
     if (k) { e.stopPropagation(); if (confirm('исключить участника?')) { await api(`/servers/${server.id}/kick/${k.dataset.kick}`, { method: 'POST' }); openServer(server.id, S.channel?.id); } }
@@ -396,12 +405,12 @@ function openChannel(ch) {
   if (S.unread[ch.id]) { delete S.unread[ch.id]; recountUnread?.(); }
   if (S.view.type === 'server') renderServerSide(); else renderHomeSide();
   renderRail();
-  $('#main-head').innerHTML = `${burger()}<span class="muted">${ch.type === 'dm' ? '@' : ic('hash')}</span> <span>${esc(ch.name)}</span>${ch.topic ? `<span class="ch-topic grow" title="${esc(ch.topic)}">${esc(ch.topic)}</span>` : '<span class="grow"></span>'}${ch.slowmode ? `<span class="muted small slow-tag" title="Медленный режим">${ic('clock')} ${slowLabel(ch.slowmode)}</span>` : ''}${S.view.type === 'server' && S.server?.server.owner_id === S.user.id ? `<button class="icon-btn" id="ch-set" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}${S.view.type === 'server' ? `<button class="icon-btn ${S.prefs.hideMembers ? '' : 'on'}" id="mem-tg" title="${S.prefs.hideMembers ? 'Показать участников' : 'Скрыть участников'}" aria-label="Список участников" aria-pressed="${!S.prefs.hideMembers}">${ic('users')}</button>` : ''}<button class="icon-btn" id="pins" title="Закреплённые" aria-label="Закреплённые">${ic('pin')}</button>`;
+  $('#main-head').innerHTML = `${burger()}<span class="muted">${ch.type === 'dm' ? '@' : ic('hash')}</span> <span>${esc(ch.name)}</span>${ch.topic ? `<span class="ch-topic grow" title="${esc(ch.topic)}">${esc(ch.topic)}</span>` : '<span class="grow"></span>'}${ch.slowmode ? `<span class="muted small slow-tag" title="Медленный режим">${ic('clock')} ${slowLabel(ch.slowmode)}</span>` : ''}${S.view.type === 'server' && can(PERM.CHANNELS) ? `<button class="icon-btn" id="ch-set" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}${S.view.type === 'server' ? `<button class="icon-btn ${S.prefs.hideMembers ? '' : 'on'}" id="mem-tg" title="${S.prefs.hideMembers ? 'Показать участников' : 'Скрыть участников'}" aria-label="Список участников" aria-pressed="${!S.prefs.hideMembers}">${ic('users')}</button>` : ''}<button class="icon-btn" id="pins" title="Закреплённые" aria-label="Закреплённые">${ic('pin')}</button>`;
   $('#main-head').onclick = (e) => { burgerClick(e); if (e.target.closest('#pins')) pinsModal(); if (e.target.closest('#ch-set')) channelSettings(ch); if (e.target.closest('#mem-tg')) toggleMembers(); };
   const v = $('#view');
   v.onclick = null;
   v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
-  v.innerHTML = `<div class="msgs" id="msgs"></div><div class="typing" id="typing"></div><div id="pf"></div><div id="reply-bar"></div>
+  v.innerHTML = `<div class="msgs" id="msgs"></div><div class="typing" id="typing"></div><div id="pf"></div><div id="reply-bar"></div>${ch.slowmode && ch.type !== 'dm' && !can(PERM.MESSAGES) ? `<div class="slow-note">${ic('clock')} Медленный режим: ${slowLabel(ch.slowmode)}</div>` : ''}
     <div class="composer"><button class="clip" id="clip" title="${S.config.files ? 'прикрепить файл' : 'файлы пока отключены'}" aria-label="прикрепить файл" ${S.config.files ? '' : 'disabled'}>${ic('plus')}</button>
     <textarea id="inp" rows="1" placeholder="написать в ${ch.type === 'dm' ? '@' : '#'}${esc(ch.name)}"></textarea>${S.config.files && window.MediaRecorder ? `<button class="clip" id="vnote" title="голосовое сообщение" aria-label="голосовое сообщение">${ic('mic')}</button>` : ''}<button id="send" aria-label="отправить">${ic('send')}</button></div>
     <input type="file" id="file" class="hidden">`;
@@ -497,11 +506,11 @@ function msgHtml(m, prev) {
     else att = `<a class="file" href="${url}" target="_blank" download="${esc(m.att_name)}">${ic('file')} ${esc(m.att_name)}</a>`;
   }
   const mine = m.user_id === S.user.id;
-  const owner = S.server && S.server.server.owner_id === S.user.id;
+  const owner = !!(S.server && can(PERM.MESSAGES));
   const cont = prev && prev.user_id === m.user_id && m.created_at - prev.created_at < 300000 && !m.reply_to;
   const when = fmtTime(m.created_at);
   const gutter = `<div class="gutter">${cont ? '' : `<span data-user="${esc(m.username)}" class="clickable">${avatar(m.username, 36)}</span>`}</div>`;
-  const name = cont ? '' : `<div class="who"><a href="#" data-user="${esc(m.username)}">${esc(m.username)}</a></div>`;
+  const name = cont ? '' : `<div class="who"><a href="#" data-user="${esc(m.username)}"${m.role_color ? ` style="color:${m.role_color}"` : ''}>${esc(m.username)}</a></div>`;
   const quote = m.reply_to ? `<div class="quote" data-jump="${m.reply_to}"><b>${esc(m.reply_name || '?')}</b> ${esc(m.reply_content || 'сообщение удалено')}</div>` : '';
   const reacts = (m.reactions || []).length ? `<div class="reacts">${m.reactions.map((r) => `<button class="react ${r.users.includes(S.user.id) ? 'on' : ''}" data-react="${r.emoji}">${r.emoji} <span>${r.users.length}</span></button>`).join('')}</div>` : '';
   const linked = m.content ? linkify(m.content) : '';

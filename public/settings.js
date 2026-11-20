@@ -286,63 +286,160 @@ function channelSettings(ch) {
 }
 
 // ---------- настройки сервера
+const PERM_INFO = [
+  [PERM.MESSAGES, 'Управлять сообщениями', 'Удалять чужие сообщения и закреплять их'],
+  [PERM.KICK, 'Исключать участников', 'Кроме владельца и других модераторов'],
+  [PERM.CHANNELS, 'Управлять каналами', 'Создавать, менять и удалять каналы'],
+  [PERM.ROLES, 'Управлять ролями', 'Создавать роли и выдавать их участникам'],
+  [PERM.SERVER, 'Управлять сервером', 'Название, описание, каталог, правила, журнал'],
+];
+async function reloadServer() {
+  const id = S.server.server.id;
+  S.server = await api(`/servers/${id}`);
+  normServer(); renderServerSide(); renderMembers();
+}
 function serverSettingsModal() {
   const s = S.server.server;
-  shell({
-    head: `${esc(s.name)}<div class="muted small">Настройки сервера</div>`,
-    tabs: [
-      { id: 'over', label: 'Обзор', render: (box, ctx) => {
-        const orig = { name: s.name, desc: s.description || '', pub: !!s.is_public };
-        const cur = { ...orig };
-        box.innerHTML = `<h2>Обзор</h2>
-          ${field('Название сервера', '<input id="ss-name" maxlength="40">')}
-          ${field('Описание', '<textarea id="ss-desc" rows="3" maxlength="200" placeholder="Коротко о сервере"></textarea><div class="muted small" id="ss-cnt"></div>')}
-          ${toggleRow('ss-pub', 'Показывать в каталоге серверов', 'Посты сервера увидят все, а присоединиться сможет любой', cur.pub)}
-          <div class="error" id="m-err"></div>`;
-        const $$ = (x) => box.querySelector(x);
-        $$('#ss-name').value = cur.name; $$('#ss-desc').value = cur.desc;
-        const sync = () => {
-          $$('#ss-cnt').textContent = `${cur.desc.length} / 200`;
-          if (cur.name !== orig.name || cur.desc !== orig.desc || cur.pub !== orig.pub) ctx.dirty(save, reset); else ctx.clean();
-        };
-        const reset = () => { Object.assign(cur, orig); $$('#ss-name').value = cur.name; $$('#ss-desc').value = cur.desc; $$('#ss-pub').checked = cur.pub; sync(); };
-        const save = async () => {
-          try {
-            if (cur.name !== orig.name) await api(`/servers/${s.id}`, { method: 'PATCH', body: { name: cur.name } });
-            await api(`/servers/${s.id}/public`, { body: { is_public: cur.pub, description: cur.desc } });
-            ctx.clean(); toast('Сервер сохранён'); closeShell(true);
-            await loadServers(); openServer(s.id, S.channel?.id);
-          } catch (er) { $$('#m-err').textContent = er.message; }
-        };
-        $$('#ss-name').oninput = (e) => { cur.name = e.target.value; sync(); };
-        $$('#ss-desc').oninput = (e) => { cur.desc = e.target.value; sync(); };
-        $$('#ss-pub').onchange = (e) => { cur.pub = e.target.checked; sync(); };
-        sync(); ctx.clean();
-      } },
-      { id: 'inv', label: 'Приглашения', render: (box) => {
-        const link = `${location.origin}/?join=${s.invite}`;
-        box.innerHTML = `<h2>Приглашения</h2>${field('Ссылка-приглашение', `<div class="sx-copy"><input readonly value="${esc(link)}"><button id="cp">Копировать</button></div>`, `Код: <b>${esc(s.invite)}</b>`)}`;
-        box.querySelector('#cp').onclick = async (e) => { try { await navigator.clipboard.writeText(link); } catch { box.querySelector('input').select(); } e.currentTarget.textContent = 'Скопировано'; };
-      } },
-      { id: 'mem', label: 'Участники', render: (box) => {
-        const draw = () => {
-          box.innerHTML = `<h2>Участники — ${S.server.members.length}</h2>${S.server.members.map((m) => `<div class="row">${avatar(m.username, 32, m.online)}<div class="grow"><b>${esc(m.username)}</b>${m.id === s.owner_id ? ' <span class="muted small">Владелец</span>' : ''}</div>${m.id !== s.owner_id ? `<button class="ghost mini" data-kick="${m.id}">Исключить</button>` : ''}</div>`).join('')}`;
-        };
-        draw();
-        box.onclick = async (e) => {
-          const b = e.target.closest('[data-kick]'); if (!b || !confirm('Исключить участника?')) return;
-          await api(`/servers/${s.id}/kick/${b.dataset.kick}`, { method: 'POST' });
-          S.server.members = S.server.members.filter((m) => m.id !== Number(b.dataset.kick)); draw(); renderMembers();
-        };
-      } },
-      { sep: true },
-      { id: 'del', label: 'Удалить сервер', danger: true, action: (ctx) => {
-        modal(`<h3>Удалить сервер</h3><div>Сервер <b>${esc(s.name)}</b>, все каналы и сообщения исчезнут навсегда.</div>
-          <div class="modal-actions"><button class="ghost" id="m-cancel">Отмена</button><button class="danger" id="m-ok">Удалить сервер</button></div>`, (c) => {
-          c.querySelector('#m-cancel').onclick = closeModal;
-          c.querySelector('#m-ok').onclick = async () => { await api(`/servers/${s.id}`, { method: 'DELETE' }); closeModal(); ctx.close(); await loadServers(); openHome(); };
-        });
-      } },
-    ],
-  });
+  const owner = s.owner_id === S.user.id;
+  const tabs = [];
+  if (can(PERM.SERVER)) tabs.push({ id: 'over', label: 'Обзор', render: tabServerOverview });
+  if (can(PERM.ROLES)) tabs.push({ id: 'roles', label: 'Роли', render: tabRoles });
+  if (can(PERM.KICK | PERM.ROLES)) tabs.push({ id: 'mem', label: 'Участники', render: tabMembers });
+  tabs.push({ id: 'inv', label: 'Приглашения', render: tabInvites });
+  if (typeof tabAudit === 'function' && can(PERM.SERVER)) tabs.push({ id: 'log', label: 'Журнал действий', render: tabAudit });
+  if (typeof tabRules === 'function' && can(PERM.SERVER)) tabs.splice(1, 0, { id: 'rules', label: 'Правила', render: tabRules });
+  if (typeof tabEmojis === 'function' && can(PERM.SERVER) && S.config.files) tabs.splice(1, 0, { id: 'emoji', label: 'Эмодзи', render: tabEmojis });
+  if (owner) {
+    tabs.push({ sep: true });
+    tabs.push({ id: 'del', label: 'Удалить сервер', danger: true, action: (ctx) => {
+      modal(`<h3>Удалить сервер</h3><div>Сервер <b>${esc(s.name)}</b>, все каналы и сообщения исчезнут навсегда.</div>
+        <div class="modal-actions"><button class="ghost" id="m-cancel">Отмена</button><button class="danger" id="m-ok">Удалить сервер</button></div>`, (c) => {
+        c.querySelector('#m-cancel').onclick = closeModal;
+        c.querySelector('#m-ok').onclick = async () => { await api(`/servers/${s.id}`, { method: 'DELETE' }); closeModal(); ctx.close(); await loadServers(); openHome(); };
+      });
+    } });
+  }
+  shell({ head: `${esc(s.name)}<div class="muted small">Настройки сервера</div>`, tabs });
+}
+
+function tabServerOverview(box, ctx) {
+  const s = S.server.server;
+  const orig = { name: s.name, desc: s.description || '', pub: !!s.is_public };
+  const cur = { ...orig };
+  box.innerHTML = `<h2>Обзор</h2>
+    ${field('Название сервера', '<input id="ss-name" maxlength="40">')}
+    ${field('Описание', '<textarea id="ss-desc" rows="3" maxlength="200" placeholder="Коротко о сервере"></textarea><div class="muted small" id="ss-cnt"></div>')}
+    ${toggleRow('ss-pub', 'Показывать в каталоге серверов', 'Посты сервера увидят все, а присоединиться сможет любой', cur.pub)}
+    <div class="error" id="m-err"></div>`;
+  const $$ = (x) => box.querySelector(x);
+  $$('#ss-name').value = cur.name; $$('#ss-desc').value = cur.desc;
+  const sync = () => {
+    $$('#ss-cnt').textContent = `${cur.desc.length} / 200`;
+    if (cur.name !== orig.name || cur.desc !== orig.desc || cur.pub !== orig.pub) ctx.dirty(save, reset); else ctx.clean();
+  };
+  const reset = () => { Object.assign(cur, orig); $$('#ss-name').value = cur.name; $$('#ss-desc').value = cur.desc; $$('#ss-pub').checked = cur.pub; sync(); };
+  const save = async () => {
+    try {
+      if (cur.name !== orig.name) await api(`/servers/${s.id}`, { method: 'PATCH', body: { name: cur.name } });
+      await api(`/servers/${s.id}/public`, { body: { is_public: cur.pub, description: cur.desc } });
+      ctx.clean(); toast('Сервер сохранён'); closeShell(true);
+      await loadServers(); openServer(s.id, S.channel?.id);
+    } catch (er) { $$('#m-err').textContent = er.message; }
+  };
+  $$('#ss-name').oninput = (e) => { cur.name = e.target.value; sync(); };
+  $$('#ss-desc').oninput = (e) => { cur.desc = e.target.value; sync(); };
+  $$('#ss-pub').onchange = (e) => { cur.pub = e.target.checked; sync(); };
+  sync(); ctx.clean();
+}
+
+function tabInvites(box) {
+  const s = S.server.server;
+  const link = `${location.origin}/?join=${s.invite}`;
+  box.innerHTML = `<h2>Приглашения</h2>${field('Ссылка-приглашение', `<div class="sx-copy"><input readonly value="${esc(link)}"><button id="cp">Копировать</button></div>`, `Код: <b>${esc(s.invite)}</b>`)}`;
+  box.querySelector('#cp').onclick = async (e) => { try { await navigator.clipboard.writeText(link); } catch { box.querySelector('input').select(); } e.currentTarget.textContent = 'Скопировано'; };
+}
+
+function tabMembers(box) {
+  const s = S.server.server;
+  const mine = S.server.my_perms;
+  let open = null;
+  const draw = () => {
+    const roles = S.server.roles.filter((r) => !(r.perms & ~mine));
+    box.innerHTML = `<h2>Участники — ${S.server.members.length}</h2>${S.server.members.map((m) => `<div class="mrow"><div class="row">${avatar(m.username, 32, m.online)}
+      <div class="grow"><b style="${m.color ? 'color:' + m.color : ''}">${esc(m.username)}</b>${m.id === s.owner_id ? ' <span class="muted small">Владелец</span>' : ''}
+      <div class="uc-roles">${m.roles.map((r) => `<span class="role-chip"><i style="background:${r.color || 'var(--muted)'}"></i>${esc(r.name)}</span>`).join('')}</div></div>
+      ${can(PERM.ROLES) && S.server.roles.length ? `<button class="ghost mini" data-roles="${m.id}">Роли</button>` : ''}
+      ${can(PERM.KICK) && m.id !== s.owner_id && m.id !== S.user.id ? `<button class="ghost mini" data-kick="${m.id}">Исключить</button>` : ''}</div>
+      ${open === m.id ? `<div class="role-pick">${roles.length ? roles.map((r) => `<button class="rp ${m.role_ids.includes(r.id) ? 'on' : ''}" data-rp="${r.id}"><i style="background:${r.color || 'var(--muted)'}"></i>${esc(r.name)}</button>`).join('') : '<span class="muted small">Нет ролей, которые ты можешь выдать</span>'}</div>` : ''}</div>`).join('')}`;
+  };
+  draw();
+  box.onclick = async (e) => {
+    const rb = e.target.closest('[data-roles]');
+    if (rb) { open = open === Number(rb.dataset.roles) ? null : Number(rb.dataset.roles); return draw(); }
+    const rp = e.target.closest('[data-rp]');
+    if (rp) {
+      const m = S.server.members.find((x) => x.id === open);
+      const id = Number(rp.dataset.rp);
+      const ids = m.role_ids.includes(id) ? m.role_ids.filter((x) => x !== id) : [...m.role_ids, id];
+      try { await api(`/servers/${s.id}/members/${m.id}/roles`, { method: 'PUT', body: { roles: ids } }); await reloadServer(); draw(); } catch (er) { toast(er.message); }
+      return;
+    }
+    const k = e.target.closest('[data-kick]');
+    if (k && confirm('Исключить участника?')) {
+      try { await api(`/servers/${s.id}/kick/${k.dataset.kick}`, { method: 'POST' }); await reloadServer(); draw(); } catch (er) { toast(er.message); }
+    }
+  };
+}
+
+function tabRoles(box, ctx) {
+  const sid = S.server.server.id;
+  const mine = S.server.my_perms;
+  let sel = S.server.roles[0]?.id ?? null;
+  const draw = () => {
+    const roles = S.server.roles;
+    const role = roles.find((r) => r.id === sel);
+    box.innerHTML = `<h2>Роли</h2><div class="muted small">Роль даёт права и цвет ника. Модератору обычно хватает «Управлять сообщениями» и «Исключать участников».</div>
+      <div class="roles-ui"><div class="roles-list">${roles.map((r) => `<button class="rl ${r.id === sel ? 'on' : ''}" data-r="${r.id}"><i style="background:${r.color || 'var(--muted)'}"></i><span class="grow">${esc(r.name)}</span></button>`).join('')}
+        <button class="ghost mini" id="r-new">+ Создать роль</button><button class="ghost mini" id="r-mod">+ Модератор</button></div>
+      <div class="role-edit" id="re">${role ? '' : '<div class="muted">Создай первую роль слева.</div>'}</div></div>`;
+    if (role) editor(role);
+  };
+  const editor = (role) => {
+    const re = box.querySelector('#re');
+    const locked = !!(role.perms & ~mine);
+    const cur = { name: role.name, color: role.color || '', perms: role.perms };
+    re.innerHTML = `${field('Название роли', '<input id="r-name" maxlength="30">')}
+      ${field('Цвет ника', `<div class="sx-sw" id="r-sw">${SX_COLORS.slice(2).map((c) => `<button type="button" class="sw" data-c="${c}" style="background:${c}" aria-label="${c}"></button>`).join('')}<label class="sw custom" title="Свой цвет"><input type="color" id="r-in" value="${cur.color || '#8a8a8a'}">${ic('edit')}</label><button type="button" class="ghost mini" id="r-nc">Без цвета</button></div>`)}
+      <div class="sx-l">Права</div>${PERM_INFO.map(([bit, t, d]) => `<label class="set-row"><div class="grow"><b>${t}</b><div class="muted small">${d}</div></div><input type="checkbox" data-bit="${bit}" ${cur.perms & bit ? 'checked' : ''} ${!(mine & bit) || locked ? 'disabled' : ''}></label>`).join('')}
+      <div class="error" id="m-err"></div>
+      <div class="admin-btns"><button id="r-save" ${locked ? 'disabled' : ''}>Сохранить роль</button><button class="danger" id="r-del" ${locked ? 'disabled' : ''}>Удалить</button></div>`;
+    const $$ = (x) => re.querySelector(x);
+    $$('#r-name').value = cur.name;
+    const mark = () => re.querySelectorAll('.sw[data-c]').forEach((b) => b.classList.toggle('on', b.dataset.c.toLowerCase() === cur.color.toLowerCase()));
+    mark();
+    $$('#r-name').oninput = (e) => { cur.name = e.target.value; };
+    $$('#r-sw').onclick = (e) => { const b = e.target.closest('.sw[data-c]'); if (b) { cur.color = b.dataset.c; mark(); } };
+    $$('#r-in').oninput = (e) => { cur.color = e.target.value; mark(); };
+    $$('#r-nc').onclick = () => { cur.color = ''; mark(); };
+    re.querySelectorAll('[data-bit]').forEach((c) => c.onchange = () => { const b = Number(c.dataset.bit); cur.perms = c.checked ? cur.perms | b : cur.perms & ~b; });
+    $$('#r-save').onclick = async () => {
+      try { await api(`/roles/${role.id}`, { method: 'PATCH', body: { name: cur.name, color: cur.color, perms: cur.perms } }); await reloadServer(); toast('Роль сохранена'); draw(); }
+      catch (er) { $$('#m-err').textContent = er.message; }
+    };
+    $$('#r-del').onclick = async () => {
+      if (!confirm(`Удалить роль «${role.name}»?`)) return;
+      try { await api(`/roles/${role.id}`, { method: 'DELETE' }); await reloadServer(); sel = S.server.roles[0]?.id ?? null; draw(); }
+      catch (er) { $$('#m-err').textContent = er.message; }
+    };
+  };
+  const create = async (body) => {
+    try { const r = await api(`/servers/${sid}/roles`, { body }); await reloadServer(); sel = r.id; draw(); } catch (er) { toast(er.message); }
+  };
+  draw();
+  box.onclick = (e) => {
+    const r = e.target.closest('[data-r]');
+    if (r) { sel = Number(r.dataset.r); draw(); return; }
+    if (e.target.closest('#r-new')) create({ name: 'Новая роль', perms: 0 });
+    if (e.target.closest('#r-mod')) create({ name: 'Модератор', color: '#30a46c', perms: (PERM.MESSAGES | PERM.KICK) & mine });
+  };
 }

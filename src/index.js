@@ -1,5 +1,6 @@
 // notcord — worker: api + websocket (durable objects) + файлы (r2)
 
+import { P, ALL_PERMS, permsOf, audit } from './perms.js';
 import { handlePublic, handleSocial, enrichMessages, notify, mentionedUsers, isAdmin, isOnline } from './social.js';
 
 const enc = new TextEncoder();
@@ -55,7 +56,8 @@ async function channelAccess(env, userId, channelId) {
 const MSG_SELECT = `SELECT m.id, m.channel_id, m.user_id, u.username, u.avatar_key, m.content,
   m.att_key, m.att_name, m.att_type, m.created_at, m.reply_to, m.edited_at, m.pinned,
   (SELECT substr(r.content, 1, 120) FROM messages r WHERE r.id = m.reply_to) AS reply_content,
-  (SELECT ru.username FROM messages r JOIN users ru ON ru.id = r.user_id WHERE r.id = m.reply_to) AS reply_name
+  (SELECT ru.username FROM messages r JOIN users ru ON ru.id = r.user_id WHERE r.id = m.reply_to) AS reply_name,
+  (SELECT r.color FROM member_roles mr JOIN roles r ON r.id = mr.role_id WHERE mr.user_id = m.user_id AND r.server_id = (SELECT server_id FROM channels WHERE id = m.channel_id) AND r.color IS NOT NULL ORDER BY r.position, r.id LIMIT 1) AS role_color
   FROM messages m JOIN users u ON u.id = m.user_id`;
 
 async function broadcast(env, room, payload) {
@@ -206,17 +208,24 @@ async function handleApi(req, env, url) {
     if (!mem) return err('нет доступа', 403);
     const s = await env.DB.prepare('SELECT id, name, owner_id, invite, is_public, description FROM servers WHERE id=?').bind(sid).first();
     if (m === 'GET') {
-      const [chs, mems] = await Promise.all([
+      const [chs, mems, roles, mroles, myPerms] = await Promise.all([
         env.DB.prepare('SELECT id, name, type, topic, slowmode FROM channels WHERE server_id=? ORDER BY id').bind(sid).all(),
         env.DB.prepare('SELECT u.id, u.username, u.avatar_key, u.last_seen FROM members mm JOIN users u ON u.id=mm.user_id WHERE mm.server_id=? ORDER BY u.username').bind(sid).all(),
+        env.DB.prepare('SELECT id, name, color, perms, position FROM roles WHERE server_id=? ORDER BY position, id').bind(sid).all(),
+        env.DB.prepare('SELECT mr.user_id, mr.role_id FROM member_roles mr JOIN roles r ON r.id = mr.role_id WHERE mr.server_id=? ORDER BY r.position, r.id').bind(sid).all(),
+        permsOf(env, me.id, sid),
       ]);
-      return json({ server: s, channels: chs.results, members: mems.results.map(({ last_seen, ...u }) => ({ ...u, online: isOnline(last_seen) })) });
+      const byUser = {};
+      for (const x of mroles.results) (byUser[x.user_id] ||= []).push(x.role_id);
+      return json({ server: s, channels: chs.results, roles: roles.results, my_perms: myPerms,
+        members: mems.results.map(({ last_seen, ...u }) => ({ ...u, role_ids: byUser[u.id] || [], online: isOnline(last_seen) })) });
     }
     if (m === 'PATCH') {
-      if (s.owner_id !== me.id) return err('только владелец сервера', 403);
+      if (!((await permsOf(env, me.id, sid)) & P.SERVER)) return err('недостаточно прав', 403);
       const n = ((await req.json()).name || '').trim().slice(0, 40);
       if (!n) return err('введи название');
       await env.DB.prepare('UPDATE servers SET name=? WHERE id=?').bind(n, sid).run();
+      await audit(env, sid, me.id, 'server_rename', n, now);
       return json({ ok: true });
     }
     if (m === 'DELETE') {
@@ -227,6 +236,11 @@ async function handleApi(req, env, url) {
           env.DB.prepare('UPDATE posts SET server_id = NULL WHERE server_id=?').bind(sid),
           env.DB.prepare('DELETE FROM channels WHERE server_id=?').bind(sid),
           env.DB.prepare('DELETE FROM members WHERE server_id=?').bind(sid),
+          env.DB.prepare('DELETE FROM member_roles WHERE server_id=?').bind(sid),
+          env.DB.prepare('DELETE FROM channel_roles WHERE role_id IN (SELECT id FROM roles WHERE server_id=?)').bind(sid),
+          env.DB.prepare('DELETE FROM roles WHERE server_id=?').bind(sid),
+          env.DB.prepare('DELETE FROM emojis WHERE server_id=?').bind(sid),
+          env.DB.prepare('DELETE FROM audit_log WHERE server_id=?').bind(sid),
           env.DB.prepare('DELETE FROM servers WHERE id=?').bind(sid),
         ]);
       } else {
@@ -237,21 +251,21 @@ async function handleApi(req, env, url) {
   }
   if ((mt = p.match(/^\/servers\/(\d+)\/channels$/)) && m === 'POST') {
     const sid = Number(mt[1]);
-    const s = await env.DB.prepare('SELECT owner_id FROM servers WHERE id=?').bind(sid).first();
-    if (!s || s.owner_id !== me.id) return err('только владелец сервера', 403);
+    if (!((await permsOf(env, me.id, sid)) & P.CHANNELS)) return err('недостаточно прав', 403);
     const { name, type } = await req.json();
     const n = (name || '').trim().toLowerCase().replace(/\s+/g, '-').slice(0, 30);
     if (!n) return err('введи название');
     const t = type === 'voice' ? 'voice' : 'text';
     const r = await env.DB.prepare('INSERT INTO channels (server_id, name, type, created_at) VALUES (?,?,?,?)')
       .bind(sid, n, t, now).run();
+    await audit(env, sid, me.id, 'channel_create', (t === 'voice' ? '🔊 ' : '# ') + n, now);
     return json({ id: r.meta.last_row_id });
   }
   // настройки канала: название, тема, медленный режим (только владелец сервера)
   if ((mt = p.match(/^\/channels\/(\d+)$/)) && (m === 'PATCH' || m === 'DELETE')) {
     const cid = Number(mt[1]);
-    const ch = await env.DB.prepare('SELECT c.id, c.server_id, s.owner_id FROM channels c JOIN servers s ON s.id = c.server_id WHERE c.id=?').bind(cid).first();
-    if (!ch || ch.owner_id !== me.id) return err('только владелец сервера', 403);
+    const ch = await env.DB.prepare('SELECT c.id, c.server_id, c.name FROM channels c WHERE c.id=? AND c.server_id IS NOT NULL').bind(cid).first();
+    if (!ch || !((await permsOf(env, me.id, ch.server_id)) & P.CHANNELS)) return err('недостаточно прав', 403);
     if (m === 'DELETE') {
       const left = await env.DB.prepare('SELECT COUNT(*) n FROM channels WHERE server_id=?').bind(ch.server_id).first();
       if (left.n <= 1) return err('нельзя удалить последний канал');
@@ -262,6 +276,7 @@ async function handleApi(req, env, url) {
         env.DB.prepare('DELETE FROM messages WHERE channel_id=?').bind(cid),
         env.DB.prepare('DELETE FROM channels WHERE id=?').bind(cid),
       ]);
+      await audit(env, ch.server_id, me.id, 'channel_delete', ch.name, now);
       return json({ ok: true });
     }
     const b = await req.json();
@@ -278,13 +293,81 @@ async function handleApi(req, env, url) {
     }
     if (!sets.length) return err('нечего менять');
     await env.DB.prepare(`UPDATE channels SET ${sets.join(', ')} WHERE id=?`).bind(...binds, cid).run();
+    await audit(env, ch.server_id, me.id, 'channel_edit', typeof b.name === 'string' ? b.name.trim() : ch.name, now);
     return json({ ok: true });
   }
   if ((mt = p.match(/^\/servers\/(\d+)\/kick\/(\d+)$/)) && m === 'POST') {
     const sid = Number(mt[1]), uid = Number(mt[2]);
     const s = await env.DB.prepare('SELECT owner_id FROM servers WHERE id=?').bind(sid).first();
-    if (!s || s.owner_id !== me.id || uid === me.id) return err('нельзя', 403);
-    await env.DB.prepare('DELETE FROM members WHERE server_id=? AND user_id=?').bind(sid, uid).run();
+    if (!s || uid === me.id || uid === s.owner_id || !((await permsOf(env, me.id, sid)) & P.KICK)) return err('нельзя', 403);
+    if (s.owner_id !== me.id && ((await permsOf(env, uid, sid)) & (P.KICK | P.ROLES | P.SERVER))) return err('нельзя исключить модератора', 403);
+    const who = await env.DB.prepare('SELECT username FROM users WHERE id=?').bind(uid).first();
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM members WHERE server_id=? AND user_id=?').bind(sid, uid),
+      env.DB.prepare('DELETE FROM member_roles WHERE server_id=? AND user_id=?').bind(sid, uid),
+    ]);
+    await audit(env, sid, me.id, 'kick', who?.username, now);
+    return json({ ok: true });
+  }
+
+  // --- роли
+  if ((mt = p.match(/^\/servers\/(\d+)\/roles$/)) && m === 'POST') {
+    const sid = Number(mt[1]);
+    const mine = await permsOf(env, me.id, sid);
+    if (!(mine & P.ROLES)) return err('недостаточно прав', 403);
+    const b = await req.json();
+    const name = String(b.name || '').trim().slice(0, 30);
+    if (!name) return err('введи название роли');
+    const perms = (Number(b.perms) || 0) & ALL_PERMS;
+    if (perms & ~mine) return err('нельзя выдать права, которых нет у тебя', 403);
+    const color = /^#[0-9a-f]{6}$/i.test(b.color || '') ? b.color : null;
+    const cnt = await env.DB.prepare('SELECT COUNT(*) n FROM roles WHERE server_id=?').bind(sid).first();
+    if (cnt.n >= 25) return err('максимум 25 ролей');
+    const r = await env.DB.prepare('INSERT INTO roles (server_id, name, color, perms, position) VALUES (?,?,?,?,?)').bind(sid, name, color, perms, cnt.n).run();
+    await audit(env, sid, me.id, 'role_create', name, now);
+    return json({ id: r.meta.last_row_id });
+  }
+  if ((mt = p.match(/^\/roles\/(\d+)$/)) && (m === 'PATCH' || m === 'DELETE')) {
+    const role = await env.DB.prepare('SELECT * FROM roles WHERE id=?').bind(Number(mt[1])).first();
+    if (!role) return err('нет такой роли', 404);
+    const mine = await permsOf(env, me.id, role.server_id);
+    if (!(mine & P.ROLES)) return err('недостаточно прав', 403);
+    if ((role.perms & ~mine)) return err('эта роль сильнее твоих прав', 403);
+    if (m === 'DELETE') {
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM member_roles WHERE role_id=?').bind(role.id),
+        env.DB.prepare('DELETE FROM channel_roles WHERE role_id=?').bind(role.id),
+        env.DB.prepare('DELETE FROM roles WHERE id=?').bind(role.id),
+      ]);
+      await audit(env, role.server_id, me.id, 'role_delete', role.name, now);
+      return json({ ok: true });
+    }
+    const b = await req.json();
+    const name = typeof b.name === 'string' ? b.name.trim().slice(0, 30) : role.name;
+    if (!name) return err('введи название роли');
+    const perms = b.perms === undefined ? role.perms : (Number(b.perms) || 0) & ALL_PERMS;
+    if (perms & ~mine) return err('нельзя выдать права, которых нет у тебя', 403);
+    const color = b.color === undefined ? role.color : (/^#[0-9a-f]{6}$/i.test(b.color || '') ? b.color : null);
+    await env.DB.prepare('UPDATE roles SET name=?, color=?, perms=? WHERE id=?').bind(name, color, perms, role.id).run();
+    await audit(env, role.server_id, me.id, 'role_edit', name, now);
+    return json({ ok: true });
+  }
+  if ((mt = p.match(/^\/servers\/(\d+)\/members\/(\d+)\/roles$/)) && m === 'PUT') {
+    const sid = Number(mt[1]), uid = Number(mt[2]);
+    const mine = await permsOf(env, me.id, sid);
+    if (!(mine & P.ROLES)) return err('недостаточно прав', 403);
+    const mem = await env.DB.prepare('SELECT 1 x FROM members WHERE server_id=? AND user_id=?').bind(sid, uid).first();
+    if (!mem) return err('участник не найден', 404);
+    const ids = [...new Set(((await req.json()).roles || []).map(Number))].slice(0, 25);
+    const { results } = await env.DB.prepare('SELECT id, perms FROM roles WHERE server_id=?').bind(sid).all();
+    const valid = results.filter((r) => ids.includes(r.id));
+    if (valid.some((r) => r.perms & ~mine)) return err('нельзя выдать роль сильнее твоих прав', 403);
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM member_roles WHERE server_id=? AND user_id=?').bind(sid, uid),
+      ...valid.map((r) => env.DB.prepare('INSERT INTO member_roles (server_id, user_id, role_id) VALUES (?,?,?)').bind(sid, uid, r.id)),
+    ]);
+    const who = await env.DB.prepare('SELECT username FROM users WHERE id=?').bind(uid).first();
+    await audit(env, sid, me.id, 'roles_set', who?.username, now);
     return json({ ok: true });
   }
 
@@ -304,8 +387,7 @@ async function handleApi(req, env, url) {
       const content = (b.content || '').slice(0, 4000);
       if (!content.trim() && !b.att_key) return err('пустое сообщение');
       if (ch.slowmode && ch.type !== 'dm') {
-        const owner = await env.DB.prepare('SELECT owner_id FROM servers WHERE id=?').bind(ch.server_id).first();
-        if (owner?.owner_id !== me.id) {
+        if (!((await permsOf(env, me.id, ch.server_id)) & P.MESSAGES)) {
           const last = await env.DB.prepare('SELECT created_at FROM messages WHERE channel_id=? AND user_id=? ORDER BY id DESC LIMIT 1').bind(cid, me.id).first();
           const wait = last ? Math.ceil((last.created_at + ch.slowmode * 1000 - now) / 1000) : 0;
           if (wait > 0) return err(`медленный режим: подожди ещё ${wait} с`, 429);
@@ -332,8 +414,12 @@ async function handleApi(req, env, url) {
     const msg = await env.DB.prepare('SELECT * FROM messages WHERE id=?').bind(Number(mt[1])).first();
     if (!msg) return err('нет такого', 404);
     const ch = await channelAccess(env, me.id, msg.channel_id);
-    const srv = ch?.server_id ? await env.DB.prepare('SELECT owner_id FROM servers WHERE id=?').bind(ch.server_id).first() : null;
-    if (!ch || (msg.user_id !== me.id && srv?.owner_id !== me.id)) return err('нельзя', 403);
+    const canMod = ch?.server_id ? !!((await permsOf(env, me.id, ch.server_id)) & P.MESSAGES) : false;
+    if (!ch || (msg.user_id !== me.id && !canMod)) return err('нельзя', 403);
+    if (msg.user_id !== me.id) {
+      const au = await env.DB.prepare('SELECT username FROM users WHERE id=?').bind(msg.user_id).first();
+      await audit(env, ch.server_id, me.id, 'msg_delete', `${au?.username || '?'} в #${ch.name}`, now);
+    }
     await env.DB.batch([
       env.DB.prepare('DELETE FROM message_reactions WHERE message_id=?').bind(msg.id),
       env.DB.prepare("DELETE FROM notifications WHERE type='mention_msg' AND post_id=?").bind(msg.id),

@@ -1,4 +1,5 @@
 // earth's network — социальная часть: лента, профили, уведомления, истории, реакции, жалобы, telegram
+import { P, permsOf } from './perms.js';
 
 const enc = new TextEncoder();
 const DAY = 86400000;
@@ -255,8 +256,7 @@ export async function handleSocial(c) {
       }
     }
     if (b.server_id) {
-      const s = await env.DB.prepare('SELECT owner_id FROM servers WHERE id=?').bind(Number(b.server_id)).first();
-      if (!s || s.owner_id !== me.id) return err('постить от имени сервера может только владелец', 403);
+      if (!((await permsOf(env, me.id, Number(b.server_id))) & P.SERVER)) return err('постить от имени сервера может владелец или админ', 403);
       serverId = Number(b.server_id);
     }
     const r = await env.DB.prepare(
@@ -500,8 +500,7 @@ export async function handleSocial(c) {
     const ch = msg && (await channelAccess(env, me.id, msg.channel_id));
     if (!ch) return err('нет доступа', 403);
     if (ch.server_id) {
-      const s = await env.DB.prepare('SELECT owner_id FROM servers WHERE id=?').bind(ch.server_id).first();
-      if (s.owner_id !== me.id) return err('закреплять может владелец сервера', 403);
+      if (!((await permsOf(env, me.id, ch.server_id)) & P.MESSAGES)) return err('закреплять могут модераторы', 403);
     }
     const pinned = msg.pinned ? 0 : 1;
     await env.DB.prepare('UPDATE messages SET pinned=? WHERE id=?').bind(pinned, msg.id).run();
@@ -526,8 +525,7 @@ export async function handleSocial(c) {
     return json({ servers: results.map((r) => ({ ...r, joined: !!r.joined })) });
   }
   if ((mt = p.match(/^\/servers\/(\d+)\/public$/)) && m === 'POST') {
-    const s = await env.DB.prepare('SELECT owner_id FROM servers WHERE id=?').bind(Number(mt[1])).first();
-    if (!s || s.owner_id !== me.id) return err('только владелец сервера', 403);
+    if (!((await permsOf(env, me.id, Number(mt[1]))) & P.SERVER)) return err('недостаточно прав', 403);
     const b = await body();
     await env.DB.prepare('UPDATE servers SET is_public=?, description=? WHERE id=?')
       .bind(b.is_public ? 1 : 0, String(b.description || '').trim().slice(0, 200) || null, Number(mt[1])).run();
