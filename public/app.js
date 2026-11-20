@@ -193,7 +193,7 @@ async function boot() {
   }
   const post = Number(q.get('post'));
   if (post) { history.replaceState(null, '', '/'); await openFeed(); return openThread(post); }
-  openFeed();
+  openHome();
 }
 function renderMe() {
   $('#me-name').textContent = S.user.username;
@@ -211,7 +211,6 @@ function renderRail() {
   const on = (c) => (c ? 'on' : '');
   const bell = S.important ? badge(S.important, true) : S.notif ? '<span class="badge dot"></span>' : '';
   r.innerHTML =
-    `<div class="ic ${on(S.view.type === 'feed' && S.view.page !== 'notif')}" data-act="feed" data-tip="Лента">${ic('globe')}</div>` +
     `<div class="ic ${on(S.view.page === 'notif')}" data-act="notif" data-tip="Уведомления">${ic('bell')}${bell}</div>` +
     `<div class="ic ${on(S.view.type === 'home')}" data-act="home" data-tip="Личные сообщения">${ic('chat')}${badge(dmUnread, true)}</div><div class="sep"></div>` +
     S.servers.map((s) => `<div class="ic ${on(S.view.type === 'server' && S.server?.server.id === s.id)}" data-sid="${s.id}" data-tip="${esc(s.name)}">${esc(s.name.slice(0, 2))}${badge(S.srvUnread[s.id])}</div>`).join('') +
@@ -221,7 +220,6 @@ function renderRail() {
     if (!t) return;
     const a = t.dataset.act;
     if (a === 'home') openHome();
-    else if (a === 'feed') openFeed();
     else if (a === 'notif') openNotifications();
     else if (a === 'add') addServerModal();
     else openServer(Number(t.dataset.sid));

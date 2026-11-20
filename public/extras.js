@@ -204,7 +204,7 @@ function paletteOpen() {
   const inp = el.querySelector('#pal-in'), list = el.querySelector('#pal-list');
   let sel = 0, items = [], timer, people = [];
   const cmds = [
-    ['Лента', 'globe', () => openFeed()], ['Моя страница', 'chat', () => openProfile(S.user.username)],
+['Моя страница', 'chat', () => openProfile(S.user.username)],
     ['Личные сообщения', 'chat', () => openHome()], ['Уведомления', 'bell', () => openNotifications()],
     ['Каталог серверов', 'compass', () => discoverModal()], ['Настройки', 'settings', () => settingsModal()],
     ['Горячие клавиши', 'smile', () => helpModal()],
@@ -312,7 +312,6 @@ function renderBnav() {
   const dm = Object.values(S.dmUnread || {}).reduce((x, y) => x + y, 0);
   const p = S.view.page, t = S.view.type;
   const items = [
-    ['feed', 'globe', 'Лента', t === 'feed' && ['all', 'following', 'clips', 'server'].includes(p), ''],
     ['home', 'chat', 'Чаты', t === 'home' || t === 'server', badge(dm + Object.values(S.srvUnread || {}).reduce((x, y) => x + y, 0), true)],
     ['search', 'search', 'Поиск', false, ''],
     ['notif', 'bell', 'События', p === 'notif', S.important ? badge(S.important, true) : S.notif ? '<span class="badge dot"></span>' : ''],

@@ -121,7 +121,7 @@ function feedSide() {
   const pg = S.view.type === 'feed' ? S.view.page : '';
   $('#side-head').innerHTML = LOGO;
  
-  const items = [['search', 'Поиск', 'search', pg === 'search'], ['friends', 'Друзья', 'friends', false], ['feed', 'Лента', 'globe', ['all', 'following', 'clips'].includes(pg)], ['settings', 'Настройки', 'settings', false]];
+  const items = [['search', 'Поиск', 'search', pg === 'search'], ['friends', 'Друзья', 'friends', false], ['settings', 'Настройки', 'settings', false]];
   $('#side-list').innerHTML = items.map(([k, n, i, on]) => `<div class="item ${on ? 'on' : ''}" data-feed="${k}" tabindex="0">${ic(i)} <span class="grow">${n}</span></div>`).join('');
   $('#side-list').onclick = (e) => {
     const t = e.target.closest('[data-feed]');
@@ -132,7 +132,7 @@ function feedSide() {
     else if (k === 'search') openSearch('');
     else if (k === 'admin') openAdmin();
     else if (k === 'settings') settingsModal();
-    else openFeed();
+    else openHome();
   };
   updateVoiceBar();
 }
