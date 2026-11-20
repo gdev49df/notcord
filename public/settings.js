@@ -56,7 +56,7 @@ function shell({ head, tabs, start }) {
 }
 
 const SX_COLORS = ['#000000', '#3a3a3a', '#8a8a8a', '#e8e8e8', '#e5484d', '#f76b15', '#f5c518', '#30a46c', '#0091ff', '#6e56cf', '#e93d82'];
-const avHtml = (name, key, size) => `<div class="avatar ${key && S.config.files ? 'img' : ''}" style="background:${colorOf(name)};width:${size}px;height:${size}px;font-size:${size * 0.45}px">${key && S.config.files ? `<img src="${fileUrl(key)}" alt="">` : esc(name[0]?.toUpperCase() || '?')}</div>`;
+const avHtml = (name, key, size) => `<div class="avatar ${imgOk(key) ? 'img' : ''}" style="background:${colorOf(name)};width:${size}px;height:${size}px;font-size:${size * 0.45}px">${imgOk(key) ? `<img src="${fileUrl(key)}" alt="">` : esc(name[0]?.toUpperCase() || '?')}</div>`;
 const field = (label, inner, hint) => `<div class="sx-f"><label class="sx-l">${label}</label>${inner}${hint ? `<div class="muted small">${hint}</div>` : ''}</div>`;
 const toggleRow = (id, title, sub, on) => `<label class="set-row"><div class="grow"><b>${title}</b>${sub ? `<div class="muted small">${sub}</div>` : ''}</div><input type="checkbox" id="${id}" ${on ? 'checked' : ''}></label>`;
 
@@ -64,7 +64,7 @@ const toggleRow = (id, title, sub, on) => `<label class="set-row"><div class="gr
 async function settingsModal(start) {
   try { S.user = { ...S.user, ...(await api('/me')).user }; } catch {}
   const u = S.user;
-  const card = (name, key, banner, status, bio) => `<div class="pcard"><div class="pc-banner" style="background:${banner || colorOf(name)}"></div>
+  const card = (name, key, banner, status, bio) => `<div class="pcard"><div class="pc-banner" style="background:${bannerBg(banner, name)}"></div>
     <div class="pc-av">${avHtml(name, key, 84)}</div>
     <div class="pc-body"><div class="pc-name">${esc(name)}</div>${status ? `<div class="pc-status">${esc(status)}</div>` : ''}
     ${bio ? `<div class="pc-sep"></div><div class="pc-h">О себе</div><div class="pc-bio">${esc(bio)}</div>` : ''}</div></div>`;
@@ -74,7 +74,7 @@ async function settingsModal(start) {
     tabs: [
       { id: 'account', label: 'Моя учётная запись', render: (box) => {
         box.innerHTML = `<h2>Моя учётная запись</h2>
-          <div class="sx-acc"><div class="pc-banner" style="background:${u.banner || colorOf(u.username)}"></div>
+          <div class="sx-acc"><div class="pc-banner" style="background:${bannerBg(u.banner, u.username)}"></div>
             <div class="sx-acc-row">${avHtml(u.username, u.avatar_key, 84)}<div class="grow"><div class="pc-name">${esc(u.username)}</div>${u.status ? `<div class="muted">${esc(u.status)}</div>` : ''}</div><button id="go-prof">Изменить профиль</button></div>
             <div class="sx-box">
               <div class="sx-line"><div class="grow"><div class="sx-l">Имя пользователя</div><div>${esc(u.username)}</div></div><button class="ghost" id="ch-name">Изменить</button></div>
@@ -92,8 +92,9 @@ async function settingsModal(start) {
         const cur = { ...orig };
         const prev = () => card(u.username, cur.key, cur.banner, cur.status, cur.bio);
         box.innerHTML = `<h2>Профиль</h2><div class="sx-two"><div class="sx-form">
-          ${field('Аватар', `<div class="sx-av-row">${S.config.files ? '<button id="av-pick">Сменить аватар</button><button class="ghost" id="av-del">Убрать</button>' : '<span class="muted small">Загрузка фото заработает после подключения R2.</span>'}</div><input type="file" id="av-in" class="hidden" accept="image/*">`)}
-          ${field('Цвет баннера', `<div class="sx-sw" id="sw">${SX_COLORS.map((c) => `<button type="button" class="sw" data-c="${c}" style="background:${c}" aria-label="${c}"></button>`).join('')}<label class="sw custom" title="Свой цвет"><input type="color" id="sw-in" value="${cur.banner || '#3a3a3a'}">${ic('edit')}</label><button type="button" class="ghost mini" id="sw-reset">По умолчанию</button></div>`)}
+          ${field('Аватар', `<div class="sx-av-row"><button id="av-pick">Загрузить</button><button class="ghost" id="av-del">Убрать</button></div><div class="muted small">JPG, PNG, GIF или WebP. Анимация — до 1,4 МБ.</div><input type="file" id="av-in" class="hidden" accept="image/jpeg,image/png,image/gif,image/webp">`)}
+          ${field('Баннер', `<div class="sx-av-row"><button id="bn-pick">Загрузить картинку</button><button class="ghost" id="bn-del">Убрать</button></div><div class="muted small">JPG, PNG, GIF или WebP, лучше широкая. Без картинки используется цвет ниже.</div><input type="file" id="bn-in" class="hidden" accept="image/jpeg,image/png,image/gif,image/webp">`)}
+          ${field('Цвет баннера', `<div class="sx-sw" id="sw">${SX_COLORS.map((c) => `<button type="button" class="sw" data-c="${c}" style="background:${c}" aria-label="${c}"></button>`).join('')}<label class="sw custom" title="Свой цвет"><input type="color" id="sw-in" value="${/^#/.test(cur.banner) ? cur.banner : '#3a3a3a'}">${ic('edit')}</label><button type="button" class="ghost mini" id="sw-reset">По умолчанию</button></div>`)}
           ${field('Статус', '<input id="pf-status" maxlength="60" placeholder="Чем сейчас занят?">')}
           ${field('О себе', '<textarea id="pf-bio" rows="4" maxlength="200" placeholder="Расскажи о себе"></textarea><div class="muted small" id="pf-cnt"></div>')}
           <div class="error" id="m-err"></div></div>
@@ -103,7 +104,7 @@ async function settingsModal(start) {
         const sync = () => {
           $$('#pv').innerHTML = prev();
           $$('#pf-cnt').textContent = `${cur.bio.length} / 200`;
-          box.querySelectorAll('.sw[data-c]').forEach((b) => b.classList.toggle('on', b.dataset.c.toLowerCase() === cur.banner.toLowerCase()));
+          box.querySelectorAll('.sw[data-c]').forEach((b) => b.classList.toggle('on', b.dataset.c.toLowerCase() === (cur.banner || '').toLowerCase()));
           const changed = ['bio', 'status', 'banner', 'key'].some((k) => cur[k] !== orig[k]);
           if (changed) ctx.dirty(save, reset); else ctx.clean();
         };
@@ -129,7 +130,17 @@ async function settingsModal(start) {
         $$('#av-del')?.addEventListener('click', () => { cur.key = ''; sync(); });
         $$('#av-in').onchange = async (e) => {
           const f = e.target.files[0]; if (!f) return;
-          try { cur.key = (await uploadFile(f)).att_key; sync(); } catch (er) { $$('#m-err').textContent = er.message; }
+          $$('#m-err').textContent = '';
+          try { cur.key = (await uploadMedia(f, 'avatar')).att_key; sync(); } catch (er) { $$('#m-err').textContent = er.message; }
+          e.target.value = '';
+        };
+        $$('#bn-pick').onclick = () => $$('#bn-in').click();
+        $$('#bn-del').onclick = () => { if (/^m_/.test(cur.banner)) cur.banner = ''; sync(); };
+        $$('#bn-in').onchange = async (e) => {
+          const f = e.target.files[0]; if (!f) return;
+          $$('#m-err').textContent = '';
+          try { cur.banner = (await uploadMedia(f, 'banner')).att_key; sync(); } catch (er) { $$('#m-err').textContent = er.message; }
+          e.target.value = '';
         };
         sync(); ctx.clean();
       } },

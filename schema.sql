@@ -196,3 +196,5 @@ CREATE TABLE IF NOT EXISTS audit_log (id INTEGER PRIMARY KEY AUTOINCREMENT, serv
 CREATE INDEX IF NOT EXISTS idx_audit_server ON audit_log(server_id, id);
 CREATE TABLE IF NOT EXISTS calls (channel_id INTEGER PRIMARY KEY, caller_id INTEGER NOT NULL, created_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS link_previews (url TEXT PRIMARY KEY, title TEXT, description TEXT, image TEXT, site TEXT, fetched_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS media (key TEXT PRIMARY KEY, owner_id INTEGER NOT NULL, type TEXT NOT NULL, data TEXT NOT NULL, size INTEGER NOT NULL, created_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_media_owner ON media(owner_id);

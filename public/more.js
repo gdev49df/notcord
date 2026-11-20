@@ -24,7 +24,7 @@ async function userCard(username, anchor) {
   const roles = member?.roles || [];
   const joined = new Date(u.created_at).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
   const row = (id, icon, text, extra = '') => `<button class="uc-row" id="${id}"><span class="uc-ri">${icon ? ic(icon) : ''}</span><span class="grow">${text}</span>${extra}</button>`;
-  el.innerHTML = `<div class="uc-banner" style="background:${u.banner || colorOf(u.username)}"></div>
+  el.innerHTML = `<div class="uc-banner" style="background:${bannerBg(u.banner, u.username)}"></div>
     <div class="uc-av">${avatar(u.username, 84, d.online)}</div>
     <div class="uc-body">
       <div class="uc-name">${esc(u.username)}</div>

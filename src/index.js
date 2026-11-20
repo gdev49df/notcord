@@ -92,6 +92,13 @@ export default {
 };
 
 async function handleFile(env, key) {
+  key = decodeURIComponent(key);
+  if (/^m_[a-f0-9]{10,40}$/.test(key)) {
+    const r = await env.DB.prepare('SELECT type, data FROM media WHERE key = ?').bind(key).first();
+    if (!r) return new Response('not found', { status: 404 });
+    const bin = Uint8Array.from(atob(r.data), (ch) => ch.charCodeAt(0));
+    return new Response(bin, { headers: { 'content-type': r.type, 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' } });
+  }
   if (!env.FILES) return new Response('files disabled', { status: 404 });
   const obj = await env.FILES.get(decodeURIComponent(key));
   if (!obj) return new Response('not found', { status: 404 });
@@ -480,6 +487,20 @@ async function handleApi(req, env, url) {
     ]);
     await broadcast(env, `text:${msg.channel_id}`, { type: 'delete', id: msg.id });
     return json({ ok: true });
+  }
+
+  // --- аватары и баннеры: хранятся в базе, R2 не нужен
+  if (p === '/upload-media' && m === 'POST') {
+    const type = (req.headers.get('content-type') || '').split(';')[0];
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(type)) return err('нужна картинка JPG, PNG, GIF или WebP');
+    const buf = new Uint8Array(await req.arrayBuffer());
+    if (buf.length > 1_400_000) return err('файл слишком большой для профиля (максимум 1,4 МБ)', 413);
+    if (!buf.length) return err('пустой файл');
+    let bin = '';
+    for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+    const key = 'm_' + rand(8);
+    await env.DB.prepare('INSERT INTO media (key, owner_id, type, data, size, created_at) VALUES (?,?,?,?,?,?)').bind(key, me.id, type, btoa(bin), buf.length, now).run();
+    return json({ att_key: key });
   }
 
   // --- файлы

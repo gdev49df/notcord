@@ -10,10 +10,11 @@ function harvest(o) {
   if (typeof o.username === 'string' && 'avatar_key' in o) A[o.username] = o.avatar_key;
   for (const k in o) if (o[k] && typeof o[k] === 'object') harvest(o[k]);
 }
+const imgOk = (k) => !!k && (S.config.files || /^m_/.test(k));
 const avatar = (name, size = 32, online) => {
   const k = A[name];
   const dot = online === undefined ? '' : `<i class="dot ${online ? 'on' : ''}"></i>`;
-  return `<div class="avatar ${k && S.config.files ? 'img' : ''}" style="background:${colorOf(name)};width:${size}px;height:${size}px;font-size:${size * 0.45}px">${k && S.config.files ? `<img src="${fileUrl(k)}" alt="" loading="lazy">` : esc(name[0]?.toUpperCase())}${dot}</div>`;
+  return `<div class="avatar ${imgOk(k) ? 'img' : ''}" style="background:${colorOf(name)};width:${size}px;height:${size}px;font-size:${size * 0.45}px">${imgOk(k) ? `<img src="${fileUrl(k)}" alt="" loading="lazy">` : esc(name[0]?.toUpperCase())}${dot}</div>`;
 };
 const fmtTime = (t) => new Date(t).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 function linkify(text, tags) {
@@ -495,6 +496,29 @@ async function toggleVoiceNote() {
   };
   r.start();
   setTimeout(() => { if (rec === r) r.stop(); }, 120000);
+}
+// фон баннера: цвет (#hex) или загруженная картинка (m_…)
+const bannerBg = (b, name) => (b && /^m_/.test(b) ? `url(${fileUrl(b)}) center/cover no-repeat` : (b || colorOf(name)));
+async function prepareImage(file, kind) {
+  if (!/^image\/(jpeg|png|gif|webp)$/.test(file.type)) throw new Error('Нужна картинка JPG, PNG, GIF или WebP');
+  const head = new Uint8Array(await file.slice(0, 256).arrayBuffer());
+  const anim = file.type === 'image/gif' || (file.type === 'image/webp' && /ANIM/.test(String.fromCharCode(...head)));
+  if (anim) {
+    if (file.size > 1.4e6) throw new Error('Анимация больше 1,4 МБ — выбери файл поменьше');
+    return file;
+  }
+  const bmp = await createImageBitmap(file);
+  const [W, H] = kind === 'avatar' ? [512, 512] : [1200, 400];
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const k = Math.max(W / bmp.width, H / bmp.height), w = bmp.width * k, h = bmp.height * k;
+  cv.getContext('2d').drawImage(bmp, (W - w) / 2, (H - h) / 2, w, h);
+  let blob = await new Promise((r) => cv.toBlob(r, 'image/webp', 0.88));
+  if (!blob || blob.type !== 'image/webp') blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.88));
+  return blob;
+}
+async function uploadMedia(file, kind) {
+  const blob = await prepareImage(file, kind);
+  return api('/upload-media', { method: 'POST', body: blob, headers: { 'content-type': blob.type } });
 }
 async function uploadFile(f) {
   return api('/upload', { method: 'POST', body: f, headers: { 'x-filename': encodeURIComponent(f.name || 'file'), 'content-type': (f.type || 'application/octet-stream').split(';')[0] } });

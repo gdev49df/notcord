@@ -436,7 +436,7 @@ async function openProfile(username) {
   let d;
   try { d = await api(`/users/${encodeURIComponent(username)}`); } catch (e) { v.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
   const u = d.user;
-  v.innerHTML = `<div class="feed"><div class="profile"><div class="pr-banner" style="background:${u.banner || colorOf(u.username)}"></div>${avatar(u.username, 80, d.online)}
+  v.innerHTML = `<div class="feed"><div class="profile"><div class="pr-banner" style="background:${bannerBg(u.banner, u.username)}"></div>${avatar(u.username, 80, d.online)}
     <div class="pr-main"><h2>${esc(u.username)}</h2>${u.status ? `<div class="pr-status">${esc(u.status)}</div>` : ''}
       ${u.bio ? `<div class="bio">${linkify(u.bio, true)}</div>` : ''}
       <div class="muted"><span id="pr-followers">${d.followers}</span> подписчиков · ${d.following} подписок${d.online ? ' · в сети' : ''}</div>

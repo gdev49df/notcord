@@ -161,7 +161,7 @@ async function tgVerify(data, token) {
 export async function handlePublic(c) {
   const { req, env, p, m, json, err, now, rand, hashPass, newSession } = c;
   if (p === '/config' && m === 'GET') {
-    return json({ files: !!env.FILES, telegram_bot: env.TG_BOT_TOKEN && env.TG_BOT_USERNAME ? env.TG_BOT_USERNAME : null });
+    return json({ files: !!env.FILES, media: true, telegram_bot: env.TG_BOT_TOKEN && env.TG_BOT_USERNAME ? env.TG_BOT_USERNAME : null });
   }
   if (p === '/auth/telegram' && m === 'POST') {
     if (!env.TG_BOT_TOKEN) return err('вход через telegram не настроен', 501);
@@ -204,7 +204,7 @@ export async function handleSocial(c) {
     if (typeof b.bio === 'string') { sets.push('bio = ?'); binds.push(b.bio.trim().slice(0, 200) || null); }
     if (typeof b.avatar_key === 'string') { sets.push('avatar_key = ?'); binds.push(b.avatar_key || null); }
     if (typeof b.banner === 'string') {
-      if (b.banner && !/^#[0-9a-f]{6}$/i.test(b.banner)) return err('неверный цвет');
+      if (b.banner && !/^#[0-9a-f]{6}$/i.test(b.banner) && !/^m_[a-f0-9]{10,40}$/.test(b.banner)) return err('неверный баннер');
       sets.push('banner = ?'); binds.push(b.banner || null);
     }
     if (typeof b.status === 'string') { sets.push('status = ?'); binds.push(b.status.trim().slice(0, 60) || null); }
