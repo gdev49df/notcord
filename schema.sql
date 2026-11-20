@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  music TEXT, music_since INTEGER, pinned_badges TEXT,
+  music TEXT, music_since INTEGER, pinned_badges TEXT, voice_cid INTEGER, voice_at INTEGER,
   username TEXT NOT NULL UNIQUE COLLATE NOCASE,
   pass_hash TEXT NOT NULL,
   pass_salt TEXT NOT NULL,

@@ -513,6 +513,23 @@ export async function handleSocial(c) {
     await env.DB.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0').bind(me.id).run();
     return json({ ok: true });
   }
+  // живое обновление: кто в сети, кто в голосовом
+  if (p === '/live' && m === 'GET') {
+    const sid = Number(url.searchParams.get('sid')) || 0, vc = Number(url.searchParams.get('voice')) || null;
+    await env.DB.prepare('UPDATE users SET last_seen = ?, voice_cid = ?, voice_at = ? WHERE id = ?').bind(now, vc, vc ? now : null, me.id).run();
+    const sel = 'u.username, u.last_seen, u.presence, u.activity, u.music';
+    const [mem, fr, dm, vo] = await Promise.all([
+      sid ? env.DB.prepare(`SELECT ${sel} FROM members mm JOIN users u ON u.id = mm.user_id WHERE mm.server_id = ? AND EXISTS (SELECT 1 FROM members x WHERE x.server_id = mm.server_id AND x.user_id = ?)`).bind(sid, me.id).all() : { results: [] },
+      env.DB.prepare(`SELECT ${sel} FROM friends f JOIN users u ON u.id = CASE WHEN f.user_a = ?1 THEN f.user_b ELSE f.user_a END WHERE f.user_a = ?1 OR f.user_b = ?1`).bind(me.id).all(),
+      env.DB.prepare(`SELECT ${sel} FROM dm_members a JOIN dm_members b ON b.channel_id = a.channel_id AND b.user_id != a.user_id JOIN users u ON u.id = b.user_id WHERE a.user_id = ?`).bind(me.id).all(),
+      sid ? env.DB.prepare('SELECT u.username, u.voice_cid FROM users u JOIN channels c ON c.id = u.voice_cid WHERE c.server_id = ? AND u.voice_at > ?').bind(sid, now - 20000).all() : { results: [] },
+    ]);
+    const pack = (rows) => rows.results.map((u) => { const st = presenceState(u.presence, u.last_seen); return { username: u.username, online: st !== 'offline', presence: st, activity: st === 'offline' ? null : u.activity || null, music: st === 'offline' ? null : u.music || null }; });
+    const voice = {};
+    for (const r of vo.results) (voice[r.voice_cid] ||= []).push(r.username);
+    return json({ members: pack(mem), friends: pack(fr), dms: pack(dm), voice });
+  }
+
   if (p === '/sync' && m === 'GET') {
     await env.DB.prepare('UPDATE users SET last_seen = ? WHERE id = ?').bind(now, me.id).run();
     if (url.searchParams.get('init')) {

@@ -10,6 +10,7 @@
     "db:init:remote": "wrangler d1 execute notcord --remote --file=schema.sql",
     "db:migrate:remote": "wrangler d1 execute notcord --remote --file=migrations/0002_social.sql",
     "db:migrate:remote:3": "wrangler d1 execute notcord --remote --file=migrations/0003_settings.sql",
+    "db:migrate:remote:10": "wrangler d1 execute notcord --remote --file=migrations/0010_live.sql",
     "db:migrate:remote:9": "wrangler d1 execute notcord --remote --file=migrations/0009_badges.sql",
     "db:migrate:remote:8": "wrangler d1 execute notcord --remote --file=migrations/0008_nick.sql",
     "db:migrate:remote:5": "wrangler d1 execute notcord --remote --file=migrations/0005_media.sql"

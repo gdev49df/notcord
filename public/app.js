@@ -782,6 +782,7 @@ async function joinVoice(ch) {
   applyAudio();
   const V = S.voice;
   V.tick = setInterval(() => api('/stats/tick', { body: { share: !!V.screen } }).catch(() => {}), 60000);
+  liveNow();
   V.ws.onmessage = async (e) => {
     const d = JSON.parse(e.data);
     if (d.type === 'welcome') {
@@ -886,6 +887,7 @@ function leaveVoice() {
   if (!V) return;
   S.voice = null;
   clearInterval(V.tick);
+  setTimeout(() => liveNow(), 100);
   try { V.ws.onclose = null; V.ws.close(); } catch {}
   Object.values(V.pcs).forEach((pc) => pc.close());
   stopShare?.(true);

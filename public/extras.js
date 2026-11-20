@@ -89,7 +89,35 @@ function startSync() {
   syncNow();
   syncTimer = setInterval(syncNow, 15000);
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { syncNow(); liveNow(); } });
+
+// ---- живое обновление: кто зашёл, кто в голосовом
+let liveBusy = false, liveSig = '';
+const livePatch = (list, map) => { let ch = false; for (const o of list || []) { const x = map[o.username]; if (x && (x.online !== o.online || x.presence !== o.presence || (x.activity || null) !== o.activity)) { x.online = o.online; x.presence = o.presence; x.activity = o.activity; ch = true; } } return ch; };
+async function liveNow() {
+  if (liveBusy || !S.user || document.hidden) return;
+  liveBusy = true;
+  try {
+    const sid = S.view?.type === 'server' ? S.server?.server.id : 0;
+    const d = await api(`/live?sid=${sid || 0}${S.voice ? '&voice=' + S.voice.channelId : ''}`);
+    const idx = (arr) => Object.fromEntries((arr || []).map((x) => [x.username, x]));
+    if (sid && S.server && livePatch(d.members, idx(S.server.members))) renderMembers();
+    const fch = livePatch(d.friends, idx(S.friends)), dch = livePatch(d.dms, idx(S.dms));
+    if (S.view?.type === 'home') {
+      if (dch) renderHomeSide();
+      if (fch && !S.channel && S.homeTab !== 'add') showFriends();
+    }
+    if (sid) {
+      const sig = JSON.stringify(d.voice);
+      if (sig !== liveSig) {
+        liveSig = sig; S.voiceUsers = d.voice;
+        S.server.channels.filter((c) => c.type === 'voice').forEach((c) => { const el = document.getElementById('vu-' + c.id); if (el) el.innerHTML = (d.voice[c.id] || []).map((n) => `<div>• ${esc(n)}</div>`).join(''); });
+      }
+    }
+  } catch {}
+  liveBusy = false;
+}
+setInterval(liveNow, 4000);
 
 // ---- уведомления
 const NOTE = { like: 'Оценил(а) ваш пост', reply: 'Ответил(а) на ваш пост', follow: 'Подписался(ась) на вас', mention: 'Упомянул(а) вас в посте', repost: 'Репостнул(а) ваш пост', quote: 'Процитировал(а) ваш пост', mention_msg: 'Упомянул(а) вас в чате' };

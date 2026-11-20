@@ -1,0 +1,2 @@
+ALTER TABLE users ADD COLUMN voice_cid INTEGER;
+ALTER TABLE users ADD COLUMN voice_at INTEGER;
