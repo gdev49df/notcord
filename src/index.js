@@ -498,7 +498,8 @@ async function handleApi(req, env, url) {
   if (p === '/friends' && m === 'GET') {
     const { results } = await env.DB.prepare(
       `SELECT f.status, f.user_a, f.user_b, ua.username AS name_a, ub.username AS name_b,
-        ua.avatar_key AS av_a, ub.avatar_key AS av_b, ua.last_seen AS ls_a, ub.last_seen AS ls_b
+        ua.avatar_key AS av_a, ub.avatar_key AS av_b, ua.last_seen AS ls_a, ub.last_seen AS ls_b,
+        ua.activity AS act_a, ub.activity AS act_b
        FROM friends f JOIN users ua ON ua.id=f.user_a JOIN users ub ON ub.id=f.user_b
        WHERE f.user_a=? OR f.user_b=?`
     ).bind(me.id, me.id).all();
@@ -509,6 +510,7 @@ async function handleApi(req, env, url) {
         username: mine ? r.name_b : r.name_a,
         avatar_key: mine ? r.av_b : r.av_a,
         online: isOnline(mine ? r.ls_b : r.ls_a),
+        activity: (mine ? r.act_b : r.act_a) || null,
         status: r.status === 'accepted' ? 'friend' : mine ? 'outgoing' : 'incoming',
       };
     });

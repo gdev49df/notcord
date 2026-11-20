@@ -315,6 +315,7 @@ function showFriends() {
     `<button class="${S.homeTab === k ? 'on' : ''}${k === 'add' ? ' add-tab' : ''}" data-tab="${k}">${n}</button>`).join('')}</div>`;
   $('#main-head').onclick = (e) => { const t = e.target.closest('[data-tab]'); if (t) { S.homeTab = t.dataset.tab; showFriends(); } else burgerClick(e); };
   const v = $('#view');
+  renderActiveContacts();
   if (S.homeTab === 'add') {
     v.innerHTML = `<div class="home addpage"><h2>Добавить в друзья</h2><div class="lead">Вы можете добавить друзей по нику.</div>
       <div class="addbox"><div class="addrow"><input id="f-name" placeholder="Введите ник" autocomplete="off"><button id="f-send" disabled>Отправить запрос дружбы</button></div></div>
@@ -345,6 +346,20 @@ function showFriends() {
     if (b.dataset.dm) { const r = await api('/dms', { body: { userId: Number(b.dataset.dm) } }); await refreshHome(); openChannel({ id: r.id, name: r.username, type: 'dm' }); }
     if (b.dataset.acc) { await api(`/friends/${b.dataset.acc}/accept`, { method: 'POST' }); await refreshHome(); showFriends(); }
     if (b.dataset.del) { await api(`/friends/${b.dataset.del}`, { method: 'DELETE' }); await refreshHome(); showFriends(); }
+  };
+}
+
+function renderActiveContacts() {
+  setLayout(true);
+  const on = S.friends.filter((f) => f.status === 'friend' && f.online);
+  $('#members').innerHTML = `<h3 class="ac-title">Активные контакты</h3>` + (on.length
+    ? `<div class="ac-list">${on.map((f) => `<div class="ac-row" data-user="${esc(f.username)}">${avatar(f.username, 36, true)}<div class="grow"><b>${esc(f.username)}</b><div class="muted small">${f.activity ? esc(f.activity) : 'В сети'}</div></div><button class="icon-btn" data-dm="${f.id}" title="Написать" aria-label="Написать">${ic('chat')}</button></div>`).join('')}</div>`
+    : `<div class="ac-empty"><b>Пока тихо…</b><div class="muted small">Когда кто-то из друзей зайдёт в сеть или во что-то сыграет, он появится здесь.</div></div>`);
+  $('#members').onclick = async (e) => {
+    const b = e.target.closest('[data-dm]');
+    if (!b) return;
+    e.stopPropagation();
+    const r = await api('/dms', { body: { userId: Number(b.dataset.dm) } }); await refreshHome(); openChannel({ id: r.id, name: r.username, type: 'dm' });
   };
 }
 
@@ -413,6 +428,7 @@ function openChannel(ch) {
   if (ch.type === 'voice') return openVoice(ch);
   closeWs();
   S.channel = ch;
+  if (S.view.type === 'home') { setLayout(false); $('#members').innerHTML = ''; }
   S.serverFeed = false;
   S.typing = {};
   S.replyTo = null;

@@ -627,3 +627,8 @@ button.sx-tab.danger:hover{background:color-mix(in srgb,var(--red) 14%,transpare
 .disc-card{width:min(560px,100%);justify-content:flex-start;gap:14px;background:var(--deep);color:var(--text);border:1px solid var(--line);padding:10px 14px;border-radius:12px;text-align:left}
 .disc-card:hover{background:var(--raise);filter:none}.disc-ic{width:36px;height:36px;border-radius:10px;background:var(--sky);color:var(--on-sky);display:flex;align-items:center;justify-content:center}
 .disc-card .i{width:20px;height:20px}
+.ac-title{margin:0;padding:16px 16px 12px;font-size:18px}
+.ac-list{margin:0 12px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--deep)}
+.ac-row{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer}.ac-row+.ac-row{border-top:1px solid var(--line)}.ac-row:hover{background:var(--raise)}
+.ac-row .grow{min-width:0}.ac-row b,.ac-row .small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac-empty{margin:0 12px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--deep)}
