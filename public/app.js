@@ -410,9 +410,9 @@ function renderServerSide() {
 function renderMembers() {
   const { members, server } = S.server;
   const owner = can(PERM.KICK);
-  const online = members.filter((m) => m.online).length;
-  $('#members').innerHTML = `<div class="cat">Участники — ${members.length}${online ? ` · в сети ${online}` : ''}</div>` + members.map((m) =>
-    `<div class="item" data-user="${esc(m.username)}">${avatar(m.username, 24, m.online)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis${m.color ? ';color:' + m.color : ''}">${esc(m.username)}${m.id === server.owner_id ? ' <span class="muted" style="font-size:12px">· владелец</span>' : ''}</span>${owner && m.id !== S.user.id && m.id !== server.owner_id ? `<button class="icon-btn" data-kick="${m.id}" title="Исключить" aria-label="Исключить">${ic('close')}</button>` : ''}</div>`).join('');
+  const row = (m) => `<div class="item mem ${m.online ? '' : 'off'}" data-user="${esc(m.username)}">${avatar(m.username, 32, m.online)}<span class="mn"${m.color ? ` style="color:${m.color}"` : ''}>${esc(m.username)}${m.id === server.owner_id ? ' <span class="muted small">· владелец</span>' : ''}</span>${owner && m.id !== S.user.id && m.id !== server.owner_id ? `<button class="icon-btn kick" data-kick="${m.id}" title="Исключить" aria-label="Исключить">${ic('close')}</button>` : ''}</div>`;
+  const on = members.filter((m) => m.online), off = members.filter((m) => !m.online);
+  $('#members').innerHTML = (on.length ? `<div class="cat">В сети — ${on.length}</div>` + on.map(row).join('') : '') + (off.length ? `<div class="cat">Не в сети — ${off.length}</div>` + off.map(row).join('') : '');
   $('#members').onclick = async (e) => {
     const k = e.target.closest('[data-kick]');
     if (k) { e.stopPropagation(); if (confirm('Исключить участника?')) { await api(`/servers/${server.id}/kick/${k.dataset.kick}`, { method: 'POST' }); openServer(server.id, S.channel?.id); } }
@@ -518,6 +518,14 @@ async function sendMessage() {
   catch (e) { alert(e.message); inp.value = content; }
 }
 
+const dayKey = (t) => new Date(t).toDateString();
+function dayLabel(t, short) {
+  const d = new Date(t), now = new Date(), y = new Date(now.getTime() - 864e5);
+  if (d.toDateString() === now.toDateString()) return short ? 'Сегодня, ' : 'Сегодня';
+  if (d.toDateString() === y.toDateString()) return short ? 'Вчера, ' : 'Вчера';
+  return short ? d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) + ', ' : d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+const dayDivider = (prevT, t) => (!prevT || dayKey(prevT) !== dayKey(t)) ? `<div class="day-div"><span>${dayLabel(t)}</span></div>` : '';
 const EMOJIS = ['👍', '❤️', '😂', '🔥', '😮', '😢'];
 function msgHtml(m, prev) {
   S.msgs[m.id] = m;
@@ -533,8 +541,9 @@ function msgHtml(m, prev) {
   const owner = !!(S.server && can(PERM.MESSAGES));
   const cont = prev && prev.user_id === m.user_id && m.created_at - prev.created_at < 300000 && !m.reply_to;
   const when = fmtTime(m.created_at);
-  const gutter = `<div class="gutter">${cont ? '' : `<span data-user="${esc(m.username)}" class="clickable">${avatar(m.username, 36)}</span>`}</div>`;
-  const name = cont ? '' : `<div class="who"><a href="#" data-user="${esc(m.username)}"${m.role_color ? ` style="color:${m.role_color}"` : ''}>${esc(m.username)}</a></div>`;
+  const hhmm = new Date(m.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const gutter = `<div class="gutter">${cont ? `<span class="hover-time">${hhmm}</span>` : `<span data-user="${esc(m.username)}" class="clickable">${avatar(m.username, 40)}</span>`}</div>`;
+  const name = cont ? '' : `<div class="who"><a href="#" data-user="${esc(m.username)}"${m.role_color ? ` style="color:${m.role_color}"` : ''}>${esc(m.username)}</a><time title="${when}">${dayLabel(m.created_at, true)}${hhmm}</time></div>`;
   const quote = m.reply_to ? `<div class="quote" data-jump="${m.reply_to}"><b>${esc(m.reply_name || '?')}</b> ${esc(m.reply_content || 'Сообщение удалено')}</div>` : '';
   const reacts = (m.reactions || []).length ? `<div class="reacts">${m.reactions.map((r) => `<button class="react ${r.users.includes(S.user.id) ? 'on' : ''}" data-react="${r.emoji}">${r.emoji} <span>${r.users.length}</span></button>`).join('')}</div>` : '';
   const linked = m.content ? linkify(m.content) : '';
@@ -565,8 +574,17 @@ async function loadMessages(cid) {
   const d = await api(`/channels/${cid}/messages`);
   if (S.channel?.id !== cid) return;
   const box = $('#msgs');
-  box.innerHTML = d.messages.length ? d.messages.map((m, i) => msgHtml(m, d.messages[i - 1])).join('') : '<div class="empty"><b>Здесь пока тихо</b>Напиши первое сообщение</div>';
-  box.scrollTop = box.scrollHeight;
+  const seenKey = `nc_seen_${cid}`, seen = Number(localStorage.getItem(seenKey) || 0);
+  let newShown = !seen;
+  box.innerHTML = d.messages.length ? d.messages.map((m, i) => {
+    const prev = d.messages[i - 1];
+    let pre = dayDivider(prev?.created_at, m.created_at);
+    if (!newShown && m.id > seen && m.user_id !== S.user.id) { newShown = true; pre += '<div class="new-div"><span>Новые сообщения</span></div>'; }
+    return pre + msgHtml(m, pre ? null : prev);
+  }).join('') : '<div class="empty"><b>Здесь пока тихо</b>Напиши первое сообщение</div>';
+  if (d.messages.length) localStorage.setItem(seenKey, String(d.messages[d.messages.length - 1].id));
+  const nd = box.querySelector('.new-div');
+  if (nd) nd.scrollIntoView({ block: 'center' }); else box.scrollTop = box.scrollHeight;
   api(`/channels/${cid}/read`, { method: 'POST' }).catch(() => {});
   box.onclick = async (e) => {
     const a = e.target.closest('a[href*="?post="]');
@@ -635,7 +653,10 @@ function connectWs(cid) {
       const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
       if (box.querySelector('.empty')) box.innerHTML = '';
       const last = box.lastElementChild;
-      box.insertAdjacentHTML('beforeend', msgHtml(d.message, prevInfo({ previousElementSibling: last })));
+      const lastMsg = [...box.querySelectorAll('.msg')].pop();
+      const dd = dayDivider(lastMsg ? Number(lastMsg.dataset.t) : 0, d.message.created_at);
+      box.insertAdjacentHTML('beforeend', dd + msgHtml(d.message, dd ? null : prevInfo({ previousElementSibling: last })));
+      localStorage.setItem(`nc_seen_${cid}`, String(d.message.id));
       if (atBottom || d.message.user_id === S.user.id) box.scrollTop = box.scrollHeight;
       if (d.message.user_id !== S.user.id) api(`/channels/${cid}/read`, { method: 'POST' }).catch(() => {});
     } else if (d.type === 'delete') {

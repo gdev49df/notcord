@@ -1,10 +1,10 @@
 /* notcord — небо, степное солнце, стеклянные панели */
 :root{
   color-scheme:dark;
-  --night:#000;--deep:#0c0c0c;--surface:#141414;--raise:#1e1e1e;--line:#ffffff1f;
+  --night:#0a0a0b;--deep:#111113;--surface:#18181b;--raise:#26262b;--line:#ffffff1a;
   --sky:#fff;--on-sky:#000;--gold:#fff;
   --text:#fafafa;--muted:#9b9b9b;--red:#ff5a5f;--green:#fff;
-  --glass:#0a0a0ab3;--glass-2:#101010cc;--bubble:#1b1b1b;
+  --glass:#0a0a0ab3;--glass-2:#101010cc;--bubble:#202024;
   --sky-bg:radial-gradient(900px 600px at 85% -10%,#ffffff1a 0,transparent 60%),radial-gradient(700px 500px at 0% 110%,#ffffff12 0,transparent 55%),#000;
   --globe:#ffffff1f;
   --spring:linear(0,.009,.035 2.1%,.141,.281 6.7%,.723 12.9%,.938 16.7%,1.017,1.077,1.121,1.149 24.3%,1.159,1.163,1.161,1.154 29.9%,1.129 32.8%,1.051 39.6%,1.017 43.1%,.991,.977 51%,.974 53.8%,.975 57.1%,.997 69.8%,1.003 76.9%,1.004 83.8%,1);
@@ -30,10 +30,10 @@
 }
 :root[data-theme=dark]{
   color-scheme:dark;
-  --night:#000;--deep:#0c0c0c;--surface:#141414;--raise:#1e1e1e;--line:#ffffff1f;
+  --night:#0a0a0b;--deep:#111113;--surface:#18181b;--raise:#26262b;--line:#ffffff1a;
   --sky:#fff;--on-sky:#000;--gold:#fff;
   --text:#fafafa;--muted:#9b9b9b;--red:#ff5a5f;--green:#fff;
-  --glass:#0a0a0ab3;--glass-2:#101010cc;--bubble:#1b1b1b;
+  --glass:#0a0a0ab3;--glass-2:#101010cc;--bubble:#202024;
   --sky-bg:radial-gradient(900px 600px at 85% -10%,#ffffff1a 0,transparent 60%),radial-gradient(700px 500px at 0% 110%,#ffffff12 0,transparent 55%),#000;
   --globe:#ffffff1f;
   --spring:linear(0,.009,.035 2.1%,.141,.281 6.7%,.723 12.9%,.938 16.7%,1.017,1.077,1.121,1.149 24.3%,1.159,1.163,1.161,1.154 29.9%,1.129 32.8%,1.051 39.6%,1.017 43.1%,.991,.977 51%,.974 53.8%,.975 57.1%,.997 69.8%,1.003 76.9%,1.004 83.8%,1);
@@ -632,3 +632,45 @@ button.sx-tab.danger:hover{background:color-mix(in srgb,var(--red) 14%,transpare
 .ac-row{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer}.ac-row+.ac-row{border-top:1px solid var(--line)}.ac-row:hover{background:var(--raise)}
 .ac-row .grow{min-width:0}.ac-row b,.ac-row .small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ac-empty{margin:0 12px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--deep)}
+
+/* плоские сообщения */
+.msgs{padding:16px 0 8px}
+.msg{gap:16px;margin-top:0;padding:2px 24px 2px 16px;align-items:flex-start;animation:none;border-radius:0}
+.msg:not(.cont){margin-top:16px;padding-top:2px}
+.msg.cont{margin-top:0}
+.msg:hover{background:#ffffff08}
+:root[data-theme=light] .msg:hover{background:#00000006}
+.msg .gutter{width:40px;flex:none;display:flex;justify-content:center;padding-top:2px}
+.msg .hover-time{font-size:11px;color:var(--muted);opacity:0;line-height:22px}.msg:hover .hover-time{opacity:1}
+.msg .body{max-width:none;flex:1;align-items:stretch;gap:0}
+.msg .who{display:flex;align-items:baseline;gap:8px;margin:0 0 2px;font-size:15px;font-weight:700}
+.msg .who a{color:var(--text)}
+.msg .who time{font-size:12px;font-weight:500;color:var(--muted)}
+.bubble,.msg.own .bubble{background:none;padding:0;border-radius:0;line-height:1.5;font-size:15px}
+.msg .quote{margin:0 0 4px}
+.reacts{margin-top:6px}
+.react{padding:2px 8px;font-size:13px;border-radius:8px;border:1px solid transparent;background:var(--raise)}
+.react.on{border-color:var(--text)}
+.msg img.att,.msg video.att{margin-top:6px}
+.msg:not(.cont) .mtools,.mtools{top:-14px;right:20px;left:auto}
+.msg .mtools{left:auto;right:20px}
+.day-div,.new-div{display:flex;align-items:center;gap:12px;margin:18px 16px 4px;font-size:12px;font-weight:600;color:var(--muted)}
+.day-div::before,.day-div::after,.new-div::before,.new-div::after{content:"";flex:1;height:1px;background:var(--line)}
+.new-div{color:var(--red)}.new-div::before,.new-div::after{background:var(--red);opacity:.6}
+.msg.cont .gutter{}
+/* участники */
+.members .cat{padding:16px 16px 6px;font-size:12px;font-weight:700;color:var(--muted);text-transform:none}
+.members .item.mem{gap:10px;margin:1px 8px;padding:6px 8px;border-radius:10px;color:var(--text)}
+.members .item.mem.off{opacity:.5}.members .item.mem.off:hover{opacity:1}
+.members .mn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.members .kick{opacity:0;padding:3px}.members .item.mem:hover .kick{opacity:.7}.members .kick:hover{opacity:1;color:var(--red)}
+.members .kick .i{width:14px;height:14px}
+/* контекстное меню */
+.ctx{position:fixed;z-index:40;min-width:220px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 16px 50px #000a;animation:rise .25s var(--spring)}
+.ctx button{width:100%;justify-content:space-between;background:none;color:var(--text);font-weight:500;padding:8px 10px;border-radius:8px;text-align:left}
+.ctx button:hover{background:var(--raise);filter:none}.ctx button.danger{color:var(--red)}
+.ctx hr{border:0;height:1px;background:var(--line);margin:6px 4px}
+.ctx .sub{position:absolute;left:100%;top:0;margin-left:4px;display:none;min-width:200px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 16px 50px #000a}
+.ctx .has-sub{position:relative}.ctx .has-sub:hover>.sub{display:block}
+.ctx .dot{width:12px;height:12px;border-radius:50%;flex:none;margin-right:8px}
+.ctx .ck{width:18px;height:18px;border:1.5px solid var(--muted);border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:12px}.ctx .ck.on{background:var(--text);color:var(--surface);border-color:var(--text)}

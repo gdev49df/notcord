@@ -139,3 +139,55 @@ function onThreadMessage(m) {
     const c = $('#thread-panel .tp-count'); if (c) { const n = list.children.length; c.textContent = `${plural(n, 'ответ', 'ответа', 'ответов')}`; }
   }
 }
+
+// ---- контекстное меню пользователя (правая кнопка)
+function closeCtx() { document.querySelectorAll('.ctx').forEach((x) => x.remove()); }
+document.addEventListener('contextmenu', (e) => {
+  const t = e.target.closest('[data-user]');
+  if (!t || !S.user) return;
+  e.preventDefault();
+  userCtx(t.dataset.user, t.closest('.msg')?.dataset.uid, e.clientX, e.clientY, t);
+});
+document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.ctx')) closeCtx(); }, true);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCtx(); });
+window.addEventListener('blur', closeCtx);
+
+function userCtx(username, uidHint, x, y, anchor) {
+  closeCtx();
+  const m = S.server?.members?.find((u) => u.username === username);
+  const id = m?.id || Number(uidHint) || S.friends?.find((f) => f.username === username)?.id || null;
+  const self = username === S.user.username;
+  const inServer = !!(S.server && m);
+  const mine = inServer ? S.server.my_perms : 0;
+  const roles = inServer && can(PERM.ROLES) ? S.server.roles.filter((r) => !(r.perms & ~mine)) : [];
+  const canKick = inServer && can(PERM.KICK) && !self && m.id !== S.server.server.owner_id;
+  const el = document.createElement('div');
+  el.className = 'ctx';
+  el.innerHTML = `<button data-c="profile">Профиль</button>
+    ${S.channel && S.channel.type !== 'voice' ? '<button data-c="mention">Упомянуть</button>' : ''}
+    ${!self && id ? '<button data-c="dm">Написать</button>' : ''}
+    ${roles.length ? `<hr><div class="has-sub"><button>Роли ${ic('chevron')}</button><div class="sub">${roles.map((r) => `<button data-role="${r.id}"><span style="display:flex;align-items:center"><i class="dot" style="background:${r.color || 'var(--muted)'}"></i>${esc(r.name)}</span><span class="ck ${m.role_ids.includes(r.id) ? 'on' : ''}">${m.role_ids.includes(r.id) ? '✓' : ''}</span></button>`).join('')}</div></div>` : ''}
+    ${canKick ? '<hr><button class="danger" data-c="kick">Исключить</button>' : ''}
+    ${id ? '<hr><button data-c="id">Копировать ID пользователя</button>' : ''}`;
+  document.body.appendChild(el);
+  const w = el.offsetWidth, h = el.offsetHeight;
+  el.style.left = Math.min(x, innerWidth - w - 8) + 'px';
+  el.style.top = Math.min(y, innerHeight - h - 8) + 'px';
+  if (x + w + 220 > innerWidth) el.querySelectorAll('.sub').forEach((s) => { s.style.left = 'auto'; s.style.right = '100%'; s.style.marginLeft = '0'; s.style.marginRight = '4px'; });
+  el.onclick = async (ev) => {
+    const b = ev.target.closest('button'); if (!b) return;
+    const rid = b.dataset.role;
+    if (rid) {
+      const ids = m.role_ids.includes(Number(rid)) ? m.role_ids.filter((r) => r !== Number(rid)) : [...m.role_ids, Number(rid)];
+      try { await api(`/servers/${S.server.server.id}/members/${m.id}/roles`, { method: 'PUT', body: { roles: ids } }); await reloadServer(); } catch (er) { toast(er.message); }
+      return closeCtx();
+    }
+    const c = b.dataset.c; if (!c) return;
+    closeCtx();
+    if (c === 'profile') userCard(username, anchor);
+    else if (c === 'mention') { const i = $('#inp'); if (i) { i.value += (i.value && !i.value.endsWith(' ') ? ' ' : '') + '@' + username + ' '; i.focus(); } }
+    else if (c === 'dm') { const r = await api('/dms', { body: { userId: id } }); await refreshHome?.(); openChannel({ id: r.id, name: r.username, type: 'dm' }); }
+    else if (c === 'id') { try { await navigator.clipboard.writeText(String(id)); toast('ID скопирован'); } catch { toast('ID: ' + id); } }
+    else if (c === 'kick' && confirm('Исключить участника?')) { try { await api(`/servers/${S.server.server.id}/kick/${id}`, { method: 'POST' }); await reloadServer(); } catch (er) { toast(er.message); } }
+  };
+}
