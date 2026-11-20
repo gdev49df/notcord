@@ -36,7 +36,7 @@ async function userCard(username, anchor) {
       <div class="uc-box"><div class="uc-box-t">О себе</div>${u.bio ? `<div class="uc-bio">${linkify(u.bio, true)}</div>` : '<div class="muted small">Пока ничего</div>'}
         <div class="muted small uc-meta"><span id="uc-fol">${d.followers}</span> подписчиков • с нами с ${joined}</div></div>
       <div class="uc-box uc-menu">
-        ${d.is_me ? row('uc-edit', 'edit', 'Редактировать профиль') + row('uc-set', 'settings', 'Настройки') + row('uc-open', 'friends', 'Моя страница')
+        ${d.is_me ? row('uc-edit', 'edit', 'Редактировать профиль') + (S.server ? row('uc-sp', 'edit', 'Профиль на сервере') : '') + row('uc-set', 'settings', 'Настройки') + row('uc-open', 'friends', 'Моя страница')
           : row('uc-dm', 'chat', 'Написать') + row('uc-fl', 'userplus', d.is_following ? 'Вы подписаны' : 'Подписаться') + row('uc-open', 'friends', 'Профиль')}
       </div>
       ${d.is_me ? `<div class="uc-box uc-menu">${[['online', 'Онлайн', ''], ['dnd', 'Занят', 'Без звуков и уведомлений'], ['invisible', 'Невидимка', 'Другие видят, что тебя нет в сети']].map(([k, n, sub]) => `<button class="uc-row ${(u.presence || 'online') === k ? 'cur' : ''}" data-pres="${k}"><span class="uc-ri"><i class="pdot ${k}"></i></span><span class="grow">${n}${sub ? `<small>${sub}</small>` : ''}</span></button>`).join('')}</div>` : ''}
@@ -46,6 +46,7 @@ async function userCard(username, anchor) {
   const $$ = (s) => el.querySelector(s);
   $$('#uc-open').onclick = () => { el.remove(); openProfile(u.username); };
   $$('#uc-edit')?.addEventListener('click', () => { el.remove(); settingsModal('profile'); });
+  $$('#uc-sp')?.addEventListener('click', () => { el.remove(); serverProfileModal(); });
   $$('#uc-set')?.addEventListener('click', () => { el.remove(); settingsModal(); });
   el.querySelectorAll('[data-pres]').forEach((b) => (b.onclick = async () => {
     try { await api('/profile', { method: 'PATCH', body: { presence: b.dataset.pres } }); S.user.presence = b.dataset.pres; renderMe(); el.remove(); userCard(username, anchor); } catch (er) { toast(er.message); }
@@ -180,6 +181,7 @@ function userCtx(username, uidHint, x, y, anchor) {
   el.innerHTML = `<button data-c="profile">Профиль</button>
     ${S.channel && S.channel.type !== 'voice' ? '<button data-c="mention">Упомянуть</button>' : ''}
     ${!self && id ? '<button data-c="dm">Написать</button>' : ''}
+    ${self && inServer ? '<button data-c="sp">Профиль на сервере</button>' : ''}
     ${roles.length ? `<hr><div class="has-sub"><button>Роли ${ic('chevron')}</button><div class="sub">${roles.map((r) => `<button data-role="${r.id}"><span style="display:flex;align-items:center"><i class="dot" style="background:${r.color || 'var(--muted)'}"></i>${esc(r.name)}</span><span class="ck ${m.role_ids.includes(r.id) ? 'on' : ''}">${m.role_ids.includes(r.id) ? '✓' : ''}</span></button>`).join('')}</div></div>` : ''}
     ${canKick ? '<hr><button class="danger" data-c="kick">Исключить</button>' : ''}
     ${id ? '<hr><button data-c="id">Копировать ID пользователя</button>' : ''}`;
@@ -200,6 +202,7 @@ function userCtx(username, uidHint, x, y, anchor) {
     closeCtx();
     if (c === 'profile') userCard(username, anchor);
     else if (c === 'mention') { const i = $('#inp'); if (i) { i.value += (i.value && !i.value.endsWith(' ') ? ' ' : '') + '@' + username + ' '; i.focus(); } }
+    else if (c === 'sp') serverProfileModal();
     else if (c === 'dm') { const r = await api('/dms', { body: { userId: id } }); await refreshHome?.(); openChannel({ id: r.id, name: r.username, type: 'dm' }); }
     else if (c === 'id') { try { await navigator.clipboard.writeText(String(id)); toast('ID скопирован'); } catch { toast('ID: ' + id); } }
     else if (c === 'kick' && confirm('Исключить участника?')) { try { await api(`/servers/${S.server.server.id}/kick/${id}`, { method: 'POST' }); await reloadServer(); } catch (er) { toast(er.message); } }
@@ -211,3 +214,25 @@ document.querySelector('.me-bar')?.addEventListener('click', (e) => {
   if (e.target.closest('button') || !S.user) return;
   if (e.target.closest('#me-avatar, #me-name')) { e.stopPropagation(); userCard(S.user.username, e.target.closest('#me-avatar, #me-name')); }
 });
+
+// ---- личный профиль на сервере: свой ник
+function serverProfileModal() {
+  if (!S.server) return;
+  const me = S.server.members.find((x) => x.id === S.user.id);
+  const sv = S.server.server;
+  modal(`<h3>Профиль на сервере</h3><div class="muted">Ник виден только на сервере «${esc(sv.name)}»: в чате, списке участников и упоминаниях. Остальным по-прежнему доступен твой основной ник <b>${esc(S.user.username)}</b>.</div>
+    <label class="sx-l">Ник на сервере</label><input id="sp-nick" maxlength="32" placeholder="${esc(S.user.username)}" value="${esc(me?.nick || '')}">
+    <div class="error" id="sp-err"></div>
+    <div class="row-btns"><button class="ghost" id="sp-reset">Сбросить до общего</button><button id="sp-save">Сохранить</button></div>`, (c) => {
+    const save = async (nick) => {
+      try {
+        await api(`/servers/${sv.id}/me`, { method: 'PATCH', body: { nick } });
+        closeModal(); await reloadServer(); if (S.channel && S.channel.type !== 'voice') openChannel(S.channel); toast(nick ? 'Ник сохранён' : 'Ник сброшен');
+      } catch (er) { c.querySelector('#sp-err').textContent = er.message; }
+    };
+    c.querySelector('#sp-save').onclick = () => save(c.querySelector('#sp-nick').value);
+    c.querySelector('#sp-reset').onclick = () => save('');
+    c.querySelector('#sp-nick').onkeydown = (e) => { if (e.key === 'Enter') save(e.target.value); };
+    c.querySelector('#sp-nick').focus();
+  });
+}

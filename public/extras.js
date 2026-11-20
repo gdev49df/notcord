@@ -19,6 +19,7 @@ async function syncNow() {
   try { d = await api('/sync' + (syncFirst ? '?init=1' : '')); } catch { return; }
   syncFirst = false;
   const prevNotif = S.notif;
+  const wasFirst = !S.syncReady; S.syncReady = true;
   const prevDm = Object.values(S.dmUnread).reduce((a, b) => a + b, 0);
   S.notif = d.notifications;
   S.important = d.important || 0;
@@ -31,6 +32,7 @@ async function syncNow() {
     try { S.dms = (await api('/dms')).dms; } catch {}
   }
   recountUnread();
+  showSyncNotes(d, prevNotif, wasFirst);
   if (S.view.page === 'notif' && d.notifications > prevNotif) openNotifications(true);
   const dmNow = Object.values(S.dmUnread).reduce((a, b) => a + b, 0);
   if (document.hidden && S.user.presence !== 'dnd' && 'Notification' in window && Notification.permission === 'granted') {
@@ -41,6 +43,44 @@ async function syncNow() {
         if (n) new Notification("Earth's Network", { body: `${n.username} ${notifText(n)}`, tag: 'notif' });
       } catch {}
     }
+  }
+}
+// ---- всплывающие уведомления справа сверху
+function pushNote({ title, body, user, onClick }) {
+  let box = document.getElementById('notes');
+  if (!box) { box = document.createElement('div'); box.id = 'notes'; document.body.appendChild(box); }
+  while (box.children.length >= 3) box.firstElementChild.remove();
+  const el = document.createElement('div');
+  el.className = 'note'; el.setAttribute('role', 'status');
+  el.innerHTML = `${user ? avatar(user, 38) : `<div class="note-ic">${ic('bell')}</div>`}<div class="note-b"><b>${esc(title)}</b><div class="note-t">${esc(body || '')}</div></div><button class="icon-btn note-x" aria-label="Закрыть">${ic('close')}</button>`;
+  const kill = () => { el.classList.add('out'); setTimeout(() => el.remove(), 300); };
+  el.onclick = (e) => { if (!e.target.closest('.note-x')) onClick?.(); kill(); };
+  el.querySelector('.note-x').onclick = (e) => { e.stopPropagation(); kill(); };
+  box.appendChild(el);
+  setTimeout(kill, 7000);
+}
+async function showSyncNotes(d, prevNotif, wasFirst) {
+  S.noted = S.noted || {};
+  const quiet = wasFirst || S.user.presence === 'dnd';
+  for (const m of d.latest || []) {
+    const seen = S.noted[m.channel_id] || 0;
+    S.noted[m.channel_id] = Math.max(seen, m.id);
+    if (quiet || m.id <= seen || S.channel?.id === m.channel_id) continue;
+    const mention = new RegExp('@' + S.user.username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w])', 'i').test(m.content || '');
+    const who = m.nick || m.username;
+    const dm = !m.server_id;
+    pushNote({
+      user: m.username,
+      title: dm ? who : `${who} · #${m.channel}${m.server ? ' · ' + m.server : ''}`,
+      body: (mention ? 'Упомянул(а) вас: ' : '') + (m.content || (m.att_name ? 'Вложение: ' + m.att_name : 'Сообщение')),
+      onClick: () => (dm ? (openHome().then(() => openChannel({ id: m.channel_id, name: m.username, type: 'dm' }))) : openServer(m.server_id, m.channel_id)),
+    });
+  }
+  if (!quiet && d.notifications > prevNotif) {
+    try {
+      const list = (await api('/notifications')).notifications.filter((x) => !x.is_read).slice(0, d.notifications - prevNotif);
+      list.filter((n) => n.type !== 'mention_msg').slice(0, 2).forEach((n) => pushNote({ user: n.username, title: n.username, body: notifText(n), onClick: () => openNotifications() }));
+    } catch {}
   }
 }
 function startSync() {

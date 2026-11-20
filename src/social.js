@@ -500,7 +500,20 @@ export async function handleSocial(c) {
       if (r.server_id) srv[r.server_id] = (srv[r.server_id] || 0) + r.n;
       else dms[r.id] = r.n;
     }
-    return json({ notifications: notif.n, important: notif.imp, unread: map, servers: srv, dms });
+    // последние сообщения из непрочитанных каналов — для всплывающих уведомлений
+    const latest = [];
+    const top = Object.keys(map).sort((a, b) => map[b] - map[a]).slice(0, 5);
+    for (const cid of top) {
+      const r = await env.DB.prepare(
+        `SELECT m.id, m.content, m.att_name, u.username, u.avatar_key, c.name AS channel, c.type, c.server_id,
+           (SELECT name FROM servers WHERE id = c.server_id) AS server,
+           (SELECT mm.nick FROM members mm WHERE mm.server_id = c.server_id AND mm.user_id = m.user_id) AS nick
+         FROM messages m JOIN users u ON u.id = m.user_id JOIN channels c ON c.id = m.channel_id
+         WHERE m.channel_id = ? AND m.user_id != ? AND m.thread_id IS NULL ORDER BY m.id DESC LIMIT 1`
+      ).bind(Number(cid), me.id).first();
+      if (r) latest.push({ channel_id: Number(cid), ...r, content: (r.content || '').slice(0, 140) });
+    }
+    return json({ notifications: notif.n, important: notif.imp, unread: map, servers: srv, dms, latest });
   }
   if ((mt = p.match(/^\/channels\/(\d+)\/read$/)) && m === 'POST') {
     const cid = Number(mt[1]);

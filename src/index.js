@@ -67,6 +67,7 @@ const MSG_SELECT = `SELECT m.id, m.channel_id, m.user_id, u.username, u.avatar_k
   (SELECT ru.username FROM messages r JOIN users ru ON ru.id = r.user_id WHERE r.id = m.reply_to) AS reply_name,
   m.thread_id,
   (SELECT COUNT(*) FROM messages t WHERE t.thread_id = m.id) AS thread_count,
+  (SELECT mm.nick FROM members mm WHERE mm.user_id = m.user_id AND mm.server_id = (SELECT server_id FROM channels WHERE id = m.channel_id)) AS nick,
   (SELECT r.color FROM member_roles mr JOIN roles r ON r.id = mr.role_id WHERE mr.user_id = m.user_id AND r.server_id = (SELECT server_id FROM channels WHERE id = m.channel_id) AND r.color IS NOT NULL ORDER BY r.position, r.id LIMIT 1) AS role_color
   FROM messages m JOIN users u ON u.id = m.user_id`;
 
@@ -219,6 +220,15 @@ async function handleApi(req, env, url) {
   }
 
   let mt;
+  // свой ник на сервере
+  if ((mt = p.match(/^\/servers\/(\d+)\/me$/)) && m === 'PATCH') {
+    const sid = Number(mt[1]);
+    const b = await req.json().catch(() => ({}));
+    const nick = typeof b.nick === 'string' ? b.nick.trim().slice(0, 32) : '';
+    const r = await env.DB.prepare('UPDATE members SET nick = ? WHERE server_id = ? AND user_id = ?').bind(nick || null, sid, me.id).run();
+    if (!r.meta.changes) return err('нет доступа', 403);
+    return json({ ok: true, nick: nick || null });
+  }
   if ((mt = p.match(/^\/servers\/(\d+)$/))) {
     const sid = Number(mt[1]);
     const mem = await env.DB.prepare('SELECT 1 x FROM members WHERE server_id=? AND user_id=?').bind(sid, me.id).first();
@@ -227,7 +237,7 @@ async function handleApi(req, env, url) {
     if (m === 'GET') {
       const [chs, mems, roles, mroles, myPerms, chRoles, myChan] = await Promise.all([
         env.DB.prepare('SELECT id, name, type, topic, slowmode, is_private FROM channels WHERE server_id=? ORDER BY id').bind(sid).all(),
-        env.DB.prepare('SELECT u.id, u.username, u.avatar_key, u.last_seen, u.presence, u.activity FROM members mm JOIN users u ON u.id=mm.user_id WHERE mm.server_id=? ORDER BY u.username').bind(sid).all(),
+        env.DB.prepare('SELECT u.id, u.username, u.avatar_key, u.last_seen, u.presence, u.activity, mm.nick FROM members mm JOIN users u ON u.id=mm.user_id WHERE mm.server_id=? ORDER BY u.username').bind(sid).all(),
         env.DB.prepare('SELECT id, name, color, perms, position FROM roles WHERE server_id=? ORDER BY position, id').bind(sid).all(),
         env.DB.prepare('SELECT mr.user_id, mr.role_id FROM member_roles mr JOIN roles r ON r.id = mr.role_id WHERE mr.server_id=? ORDER BY r.position, r.id').bind(sid).all(),
         permsOf(env, me.id, sid),

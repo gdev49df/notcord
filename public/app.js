@@ -389,12 +389,31 @@ function renderServerSide() {
   const { server, channels } = S.server;
   const owner = server.owner_id === S.user.id;
   const canCh = can(PERM.CHANNELS);
-  $('#side-head').innerHTML = `<span>${esc(server.name)}</span><span><button class="icon-btn" id="inv" title="Пригласить" aria-label="Пригласить">${ic('userplus')}</button>${can(PERM.SERVER | PERM.ROLES | PERM.KICK | PERM.CHANNELS) ? `<button class="icon-btn" id="srv-set" title="Настройки сервера" aria-label="Настройки сервера">${ic('settings')}</button>` : ''}<button class="icon-btn" id="leave" title="${owner ? 'Удалить сервер' : 'Выйти'}" aria-label="Меню сервера">${ic('more')}</button></span>`;
+  $('#side-head').innerHTML = `<button class="srv-name" id="srv-name" aria-haspopup="menu">${esc(server.name)} ${ic('chevron')}</button><span><button class="icon-btn" id="inv" title="Пригласить" aria-label="Пригласить">${ic('userplus')}</button></span>`;
   $('#inv').onclick = inviteModal;
-  if ($('#srv-set')) $('#srv-set').onclick = serverSettingsModal;
-  $('#leave').onclick = async () => {
-    if (!confirm(owner ? 'Удалить сервер навсегда?' : 'Выйти с сервера?')) return;
-    await api(`/servers/${server.id}`, { method: 'DELETE' }); await loadServers(); openHome();
+  $('#srv-name').onclick = (e) => {
+    e.stopPropagation();
+    if ($('.ctx.srvmenu')) return closeCtx();
+    closeCtx();
+    const r = e.currentTarget.getBoundingClientRect();
+    const el = document.createElement('div'); el.className = 'ctx srvmenu';
+    el.innerHTML = `<button data-s="inv">Пригласить людей ${ic('userplus')}</button>
+      ${can(PERM.SERVER | PERM.ROLES | PERM.KICK | PERM.CHANNELS) ? `<button data-s="set">Настройки сервера ${ic('settings')}</button>` : ''}
+      ${can(PERM.CHANNELS) ? `<button data-s="ch">Создать канал ${ic('plus')}</button>` : ''}<hr>
+      <button data-s="nick">Профиль на сервере ${ic('edit')}</button><hr>
+      <button class="danger" data-s="leave">${owner ? 'Удалить сервер' : 'Покинуть сервер'} ${ic('close')}</button>`;
+    document.body.appendChild(el);
+    el.style.left = r.left + 'px'; el.style.top = r.bottom + 6 + 'px'; el.style.width = Math.max(250, r.width) + 'px';
+    el.onclick = async (ev) => {
+      const b = ev.target.closest('[data-s]'); if (!b) return;
+      closeCtx();
+      const k = b.dataset.s;
+      if (k === 'inv') inviteModal(); else if (k === 'set') serverSettingsModal(); else if (k === 'ch') channelModal('text'); else if (k === 'nick') serverProfileModal();
+      else if (k === 'leave') {
+        if (!confirm(owner ? 'Удалить сервер навсегда?' : 'Покинуть сервер?')) return;
+        await api(`/servers/${server.id}`, { method: 'DELETE' }); await loadServers(); openHome();
+      }
+    };
   };
   const group = (type, title) => `<div class="cat"><span>${title}</span>${canCh ? `<button data-add="${type}" title="Создать канал" aria-label="Создать канал">${ic('plus')}</button>` : ''}</div>` +
     channels.filter((c) => c.type === type).map((c) => `<div class="item ${S.channel?.id === c.id ? 'on' : ''}" data-ch="${c.id}">${ic(c.is_private ? 'lock' : type === 'text' ? 'hash' : 'speaker')} <span class="grow">${esc(c.name)}</span>${canCh ? `<button class="icon-btn ch-gear" data-gear="${c.id}" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}${badge(S.unread[c.id])}</div>` +
@@ -416,7 +435,7 @@ function renderServerSide() {
 function renderMembers() {
   const { members, server } = S.server;
   const owner = can(PERM.KICK);
-  const row = (m) => `<div class="item mem ${m.online ? '' : 'off'}" data-user="${esc(m.username)}">${avatar(m.username, 32, ps(m))}<span class="mn"${m.color ? ` style="color:${m.color}"` : ''}>${esc(m.username)}${m.id === server.owner_id ? ' <span class="muted small">· владелец</span>' : ''}</span>${owner && m.id !== S.user.id && m.id !== server.owner_id ? `<button class="icon-btn kick" data-kick="${m.id}" title="Исключить" aria-label="Исключить">${ic('close')}</button>` : ''}</div>`;
+  const row = (m) => `<div class="item mem ${m.online ? '' : 'off'}" data-user="${esc(m.username)}">${avatar(m.username, 32, ps(m))}<span class="mn"${m.color ? ` style="color:${m.color}"` : ''}>${esc(m.nick || m.username)}${m.nick ? ` <span class="muted small">@${esc(m.username)}</span>` : ''}${m.id === server.owner_id ? ' <span class="muted small">· владелец</span>' : ''}</span>${owner && m.id !== S.user.id && m.id !== server.owner_id ? `<button class="icon-btn kick" data-kick="${m.id}" title="Исключить" aria-label="Исключить">${ic('close')}</button>` : ''}</div>`;
   const on = members.filter((m) => m.online), off = members.filter((m) => !m.online);
   $('#members').innerHTML = (on.length ? `<div class="cat">В сети — ${on.length}</div>` + on.map(row).join('') : '') + (off.length ? `<div class="cat">Не в сети — ${off.length}</div>` + off.map(row).join('') : '');
   $('#members').onclick = async (e) => {
@@ -574,7 +593,7 @@ function msgHtml(m, prev) {
   const when = fmtTime(m.created_at);
   const hhmm = new Date(m.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   const gutter = `<div class="gutter">${cont ? `<span class="hover-time">${hhmm}</span>` : `<span data-user="${esc(m.username)}" class="clickable">${avatar(m.username, 40)}</span>`}</div>`;
-  const name = cont ? '' : `<div class="who"><a href="#" data-user="${esc(m.username)}"${m.role_color ? ` style="color:${m.role_color}"` : ''}>${esc(m.username)}</a><time title="${when}">${dayLabel(m.created_at, true)}${hhmm}</time></div>`;
+  const name = cont ? '' : `<div class="who"><a href="#" data-user="${esc(m.username)}"${m.role_color ? ` style="color:${m.role_color}"` : ''}>${esc(m.nick || m.username)}</a><time title="${when}">${dayLabel(m.created_at, true)}${hhmm}</time></div>`;
   const quote = m.reply_to ? `<div class="quote" data-jump="${m.reply_to}"><b>${esc(m.reply_name || '?')}</b> ${esc(m.reply_content || 'Сообщение удалено')}</div>` : '';
   const reacts = (m.reactions || []).length ? `<div class="reacts">${m.reactions.map((r) => `<button class="react ${r.users.includes(S.user.id) ? 'on' : ''}" data-react="${r.emoji}">${r.emoji} <span>${r.users.length}</span></button>`).join('')}</div>` : '';
   const linked = m.content ? linkify(m.content) : '';
