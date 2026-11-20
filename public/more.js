@@ -41,7 +41,7 @@ async function userCard(username, anchor) {
         ${d.is_me ? row('uc-edit', 'edit', 'Редактировать профиль') + (S.server ? row('uc-sp', 'edit', 'Профиль на сервере') : '') + row('uc-set', 'settings', 'Настройки') + row('uc-open', 'friends', 'Моя страница')
           : row('uc-dm', 'chat', 'Написать') + row('uc-fl', 'userplus', d.is_following ? 'Вы подписаны' : 'Подписаться') + row('uc-open', 'friends', 'Профиль')}
       </div>
-      ${d.is_me ? `<div class="uc-box uc-menu">${[['online', 'Онлайн', ''], ['dnd', 'Занят', 'Без звуков и уведомлений'], ['invisible', 'Невидимка', 'Другие видят, что тебя нет в сети']].map(([k, n, sub]) => `<button class="uc-row ${(u.presence || 'online') === k ? 'cur' : ''}" data-pres="${k}"><span class="uc-ri"><i class="pdot ${k}"></i></span><span class="grow">${n}${sub ? `<small>${sub}</small>` : ''}</span></button>`).join('')}</div>` : ''}
+      ${d.is_me ? `<div class="uc-box uc-menu"><button class="uc-row" id="uc-pres"><span class="uc-ri"><i class="pdot ${u.presence || 'online'}"></i></span><span class="grow">${{ online: 'Онлайн', dnd: 'Занят', invisible: 'Невидимка' }[u.presence || 'online']}</span><span class="uc-chev">${ic('chevron')}</span></button></div>` : ''}
       <div class="uc-box uc-menu">${row('uc-id', '', 'Копировать ID пользователя', '<span class="uc-idb">ID</span>')}</div>
     </div>`;
   place();
@@ -50,8 +50,8 @@ async function userCard(username, anchor) {
   $$('#uc-edit')?.addEventListener('click', () => { el.remove(); settingsModal('profile'); });
   $$('#uc-sp')?.addEventListener('click', () => { el.remove(); serverProfileModal(); });
   $$('#uc-set')?.addEventListener('click', () => { el.remove(); settingsModal(); });
-  el.querySelectorAll('[data-pres]').forEach((b) => (b.onclick = async () => {
-    try { await api('/profile', { method: 'PATCH', body: { presence: b.dataset.pres } }); S.user.presence = b.dataset.pres; renderMe(); el.remove(); userCard(username, anchor); } catch (er) { toast(er.message); }
+  $$('#uc-pres')?.addEventListener('click', (e) => presMenu(e.currentTarget, u.presence || 'online', async (k) => {
+    try { await api('/profile', { method: 'PATCH', body: { presence: k } }); S.user.presence = k; renderMe(); el.remove(); userCard(username, anchor); } catch (er) { toast(er.message); }
   }));
   $$('#uc-id').onclick = async () => { try { await navigator.clipboard.writeText(String(u.id)); toast('ID скопирован'); } catch { toast('ID: ' + u.id); } el.remove(); };
   $$('#uc-fl')?.addEventListener('click', async (e) => {
@@ -64,6 +64,22 @@ async function userCard(username, anchor) {
     const r = await api('/dms', { body: { userId: u.id } });
     await openHome(); await refreshHome(); openChannel({ id: r.id, name: r.username, type: 'dm' });
   });
+  const off = (ev) => { if (!el.contains(ev.target)) { el.remove(); document.removeEventListener('pointerdown', off, true); } };
+  setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
+}
+
+// мини-окошко выбора статуса
+const PRES = [['online', 'Онлайн', ''], ['dnd', 'Занят', 'Без звуков и уведомлений'], ['invisible', 'Невидимка', 'Другие видят, что тебя нет в сети']];
+function presMenu(anchor, cur, onPick) {
+  document.getElementById('pmenu')?.remove();
+  const el = document.createElement('div');
+  el.id = 'pmenu'; el.className = 'ctx pmenu';
+  el.innerHTML = PRES.map(([k, n, sub]) => `<button data-p="${k}" class="${k === cur ? 'cur' : ''}"><span class="pm-l"><i class="pdot ${k}"></i><span>${n}${sub ? `<small>${sub}</small>` : ''}</span></span>${k === cur ? '<span class="pm-ck">✓</span>' : ''}</button>`).join('');
+  document.body.appendChild(el);
+  const r = anchor.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+  let x = r.right + 8; if (x + w > innerWidth - 8) x = Math.max(8, r.left - w - 8);
+  el.style.left = x + 'px'; el.style.top = Math.max(8, Math.min(r.top, innerHeight - h - 8)) + 'px';
+  el.onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { el.remove(); onPick(b.dataset.p); } };
   const off = (ev) => { if (!el.contains(ev.target)) { el.remove(); document.removeEventListener('pointerdown', off, true); } };
   setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
 }

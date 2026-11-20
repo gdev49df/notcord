@@ -101,7 +101,7 @@ async function settingsModal(start) {
             <div class="sw-group"><div class="muted">Свой цвет</div><div class="sw-grad"><label class="sw custom" title="Цвет"><input type="color" id="sw-in" value="${/^#/.test(cur.banner) ? cur.banner : '#3a3a3a'}">${ic('edit')}</label>${window.EyeDropper ? '<button type="button" class="ghost mini" id="sw-drop">Пипетка</button>' : ''}<span class="muted small">или градиент:</span><input type="color" id="g1" value="#ff4d8d"><input type="color" id="g2" value="#4d6bff"><button type="button" class="ghost mini" id="g-go">Применить</button><button type="button" class="ghost mini" id="sw-reset">По умолчанию</button></div></div></div>`)}
           ${field('Местоимения', '<input id="pf-pron" maxlength="20" placeholder="например, она/её">')}
           ${field('Ссылки', `<div class="soc-edit">${[['link_tg', 'Telegram', '@ник или t.me/…'], ['link_tt', 'TikTok', '@ник или tiktok.com/@…'], ['link_ig', 'Instagram', '@ник или instagram.com/…']].map(([k, n, ph]) => `<div class="st-row"><span class="soc-n">${ic('soc_' + k.slice(5))} ${n}</span><input data-lk="${k}" maxlength="80" placeholder="${ph}"></div>`).join('')}</div>`)}
-          ${field('Статус в сети', `<div class="st-row" id="pres">${[['online', 'Онлайн'], ['dnd', 'Занят'], ['invisible', 'Невидимка']].map(([k, n]) => `<button type="button" class="ghost pres-b" data-p="${k}"><i class="pdot ${k}"></i> ${n}</button>`).join('')}</div><div class="muted small">«Занят» отключает звуки и уведомления. «Невидимка» скрывает тебя из сети.</div>`)}
+          ${field('Статус в сети', `<button type="button" class="ghost pres-b" id="pres"></button><div class="muted small">«Занят» отключает звуки и уведомления. «Невидимка» скрывает тебя из сети.</div>`)}
           ${field('Текстовый статус', `<input id="pf-status" maxlength="80" placeholder="Чем сейчас занят?"><div class="st-emoji" id="st-emoji">${['😀', '😴', '🎮', '💻', '📚', '🎧', '🍕', '🔥'].map((e) => `<button type="button" data-e="${e}">${e}</button>`).join('')}</div><div class="st-row" style="margin-top:8px"><span class="muted small">Очистить через</span><select id="pf-ttl"><option value="0">Не очищать</option><option value="60">1 час</option><option value="240">4 часа</option><option value="1440">24 часа</option></select></div>`)}
           ${field('Играет в…', '<input id="pf-act" maxlength="40" placeholder="Название игры">', 'Показывается в карточке и в «Активных контактах».')}
           ${field('Музыка сейчас', '<input id="pf-mus" maxlength="80" placeholder="Исполнитель — трек">', 'Показывается в карточке строкой «Слушает». Очисти поле, чтобы убрать.')}
@@ -115,7 +115,7 @@ async function settingsModal(start) {
           $$('#pv').innerHTML = prev();
           $$('#pf-cnt').textContent = `${cur.bio.length} / 200`;
           box.querySelectorAll('.sw[data-c]').forEach((b) => b.classList.toggle('on', b.dataset.c.toLowerCase() === (cur.banner || '').toLowerCase()));
-          box.querySelectorAll('.pres-b').forEach((b) => b.classList.toggle('on', b.dataset.p === cur.presence));
+          $$('#pres').innerHTML = `<i class="pdot ${cur.presence}"></i> ${{ online: 'Онлайн', dnd: 'Занят', invisible: 'Невидимка' }[cur.presence]} <span class="uc-chev">${ic('chevron')}</span>`;
           const changed = ['bio', 'status', 'banner', 'key', 'presence', 'activity', 'music', 'ttl', 'pronouns', 'link_tg', 'link_tt', 'link_ig'].some((k) => cur[k] !== orig[k]);
           if (changed) ctx.dirty(save, reset); else ctx.clean();
         };
@@ -149,7 +149,7 @@ async function settingsModal(start) {
           try { cur.key = (await uploadMedia(f, 'avatar')).att_key; sync(); } catch (er) { $$('#m-err').textContent = er.message; }
           e.target.value = '';
         };
-        $$('#pres').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { cur.presence = b.dataset.p; sync(); } };
+        $$('#pres').onclick = (e) => presMenu(e.currentTarget, cur.presence, (k) => { cur.presence = k; sync(); });
         $$('#pf-ttl').onchange = (e) => { cur.ttl = e.target.value; sync(); };
         $$('#pf-act').oninput = (e) => { cur.activity = e.target.value; sync(); };
         $$('#pf-mus').oninput = (e) => { cur.music = e.target.value; sync(); };
