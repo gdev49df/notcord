@@ -36,10 +36,10 @@ async function userCard(username, anchor) {
       ${roles.length ? `<div class="uc-roles">${roles.map((r) => `<span class="role-chip"><i style="background:${r.color || 'var(--muted)'}"></i>${esc(r.name)}</span>`).join('')}</div>` : ''}
       ${socialLinks(u) ? `<div class="soc-row">${socialLinks(u)}</div>` : ''}
       <div class="uc-box"><div class="uc-box-t">О себе</div>${u.bio ? `<div class="uc-bio">${linkify(u.bio, true)}</div>` : '<div class="muted small">Пока ничего</div>'}
-        <div class="muted small uc-meta"><span id="uc-fol">${d.followers}</span> подписчиков • с нами с ${joined}</div></div>
+        <div class="muted small uc-meta">С нами с ${joined}</div></div>
       <div class="uc-box uc-menu">
         ${d.is_me ? row('uc-edit', 'edit', 'Редактировать профиль') + (S.server ? row('uc-sp', 'edit', 'Профиль на сервере') : '') + row('uc-set', 'settings', 'Настройки') + row('uc-open', 'friends', 'Моя страница')
-          : row('uc-dm', 'chat', 'Написать') + row('uc-fl', 'userplus', d.is_following ? 'Вы подписаны' : 'Подписаться') + row('uc-open', 'friends', 'Профиль')}
+          : row('uc-dm', 'chat', 'Написать') + row('uc-open', 'friends', 'Профиль')}
       </div>
       ${d.is_me ? `<div class="uc-box uc-menu"><button class="uc-row" id="uc-pres"><span class="uc-ri"><i class="pdot ${u.presence || 'online'}"></i></span><span class="grow">${{ online: 'Онлайн', dnd: 'Занят', invisible: 'Невидимка' }[u.presence || 'online']}</span><span class="uc-chev">${ic('chevron')}</span></button></div>` : ''}
       <div class="uc-box uc-menu">${row('uc-id', '', 'Копировать ID пользователя', '<span class="uc-idb">ID</span>')}</div>

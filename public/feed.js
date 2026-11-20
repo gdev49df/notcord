@@ -439,10 +439,9 @@ async function openProfile(username) {
   v.innerHTML = `<div class="feed"><div class="profile"><div class="pr-banner" style="background:${bannerBg(u.banner, u.username)}"></div>${avatar(u.username, 80, ps({ online: d.online, presence: u.presence }))}
     <div class="pr-main"><h2>${esc(u.username)}${u.pronouns ? ` <span class="pron">${esc(u.pronouns)}</span>` : ''}</h2>${socialLinks(u) ? `<div class="soc-row">${socialLinks(u)}</div>` : ''}${u.status ? `<div class="pr-status">${esc(u.status)}</div>` : ''}${typeof badgeRow === 'function' && d.badges?.length ? badgeRow(d.badges) : ''}
       ${u.bio ? `<div class="bio">${linkify(u.bio, true)}</div>` : ''}
-      <div class="muted"><span id="pr-followers">${d.followers}</span> подписчиков · ${d.following} подписок${d.online ? ' · в сети' : ''}</div>
-      <div class="muted">С нами с ${new Date(u.created_at).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</div></div>
-    <div class="pr-btns">${d.is_me ? `<button class="ghost" id="pr-edit">${ic('edit')} изменить</button>` :
-      `<button id="pr-follow" class="${d.is_following ? 'ghost' : ''}">${d.is_following ? 'Вы подписаны' : 'Подписаться'}</button><button class="ghost" id="pr-dm">Написать</button>
+      <div class="muted">${d.online ? 'В сети · ' : ''}С нами с ${new Date(u.created_at).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</div></div>
+    <div class="pr-btns">${d.is_me ? `<button class="ghost" id="pr-edit">${ic('edit')} Изменить</button>` :
+      `<button id="pr-dm">Написать</button>
        <button class="ghost ${d.is_close ? 'on' : ''}" id="pr-close" title="Близкие друзья видят твои закрытые истории">${ic('star')}</button><button class="icon-btn" id="pr-report" aria-label="Пожаловаться">${ic('flag')}</button>`}</div></div>
     <div id="posts">${d.pinned ? postHtml(d.pinned) : ''}${d.posts.length || d.pinned ? d.posts.map((p) => postHtml(p)).join('') : '<div class="empty"><b>Постов пока нет</b></div>'}</div></div>`;
   bindPostEvents(v, () => openProfile(username));
