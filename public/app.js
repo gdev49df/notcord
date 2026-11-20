@@ -77,6 +77,7 @@ const ICONS = {
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   users: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.4-3.2 2.6-5 5.5-5s5.1 1.8 5.5 5M16 5.6a3.2 3.2 0 0 1 0 5.8M17.5 14.3c1.9.5 3 2.1 3.3 4.7"/>',
   lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  thread: '<circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M6 8v4a4 4 0 0 0 4 4h6"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
 const ic = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
@@ -123,8 +124,8 @@ async function api(path, opts = {}) {
   }
   const r = await fetch('/api' + path, { method: opts.method || (body ? 'POST' : 'GET'), headers, body });
   const data = await r.json().catch(() => ({}));
-  if (r.status === 401 && S.token && path !== '/login') { logout(true); throw new Error('сессия истекла'); }
-  if (!r.ok) throw new Error(data.error || 'ошибка');
+  if (r.status === 401 && S.token && path !== '/login') { logout(true); throw new Error('Сессия истекла'); }
+  if (!r.ok) throw new Error(data.error || 'Ошибка');
   harvest(data);
   return data;
 }
@@ -134,22 +135,21 @@ let regMode = false;
 function showAuth() {
   $('#app').classList.add('hidden');
   $('#auth').classList.remove('hidden');
-  mosaicResolve($('.auth-hero .wordmark'));
 }
 $('#a-eye').onclick = () => {
   const inp = $('#a-pass'), show = inp.type === 'password';
   inp.type = show ? 'text' : 'password';
   $('#a-eye').setAttribute('aria-pressed', show);
-  $('#a-eye').setAttribute('aria-label', show ? 'скрыть пароль' : 'показать пароль');
+  $('#a-eye').setAttribute('aria-label', show ? 'Скрыть пароль' : 'Показать пароль');
   inp.focus();
 };
 $('#a-toggle').onclick = (e) => {
   $('#a-pass').autocomplete = regMode ? 'current-password' : 'new-password';
   e.preventDefault();
   regMode = !regMode;
-  $('#a-submit').textContent = regMode ? 'создать аккаунт' : 'войти';
-  $('#a-title').textContent = regMode ? 'создай аккаунт' : 'с возвращением';
-  $('#a-toggle').textContent = regMode ? 'уже есть аккаунт? войти' : 'нет аккаунта? зарегистрироваться';
+  $('#a-submit').textContent = regMode ? 'Создать аккаунт' : 'Войти';
+  $('#a-title').textContent = regMode ? 'Создай аккаунт' : 'С возвращением';
+  $('#a-toggle').textContent = regMode ? 'Уже есть аккаунт? войти' : 'Нет аккаунта? зарегистрироваться';
 };
 $('#auth-form').onsubmit = async (e) => {
   e.preventDefault();
@@ -244,12 +244,12 @@ function modal(html, onMount) {
 function closeModal() { $('#modal').classList.add('hidden'); }
 
 function addServerModal() {
-  modal(`<h3>новый сервер</h3>
-    <input id="m-name" placeholder="название сервера">
-    <button id="m-create">создать</button>
-    <div class="muted" style="text-align:center">или</div>
-    <input id="m-code" placeholder="код приглашения">
-    <button class="ghost" id="m-join">присоединиться</button>
+  modal(`<h3>Новый сервер</h3>
+    <input id="m-name" placeholder="Название сервера">
+    <button id="m-create">Создать</button>
+    <div class="muted" style="text-align:center">Или</div>
+    <input id="m-code" placeholder="Код приглашения">
+    <button class="ghost" id="m-join">Присоединиться</button>
     <button class="ghost" id="m-disc">${ic('compass')} каталог открытых серверов</button>
     <div class="error" id="m-err"></div>`, (c) => {
     c.querySelector('#m-disc').onclick = () => { closeModal(); discoverModal(); };
@@ -266,10 +266,10 @@ function addServerModal() {
 
 function inviteModal() {
   const link = `${location.origin}/?join=${S.server.server.invite}`;
-  modal(`<h3>пригласить людей</h3>
-    <div class="muted">код: <b>${esc(S.server.server.invite)}</b></div>
+  modal(`<h3>Пригласить людей</h3>
+    <div class="muted">Код: <b>${esc(S.server.server.invite)}</b></div>
     <input readonly value="${esc(link)}" onclick="this.select()">
-    <div class="modal-actions"><button id="m-ok">готово</button></div>`, (c) => { c.querySelector('#m-ok').onclick = closeModal; });
+    <div class="modal-actions"><button id="m-ok">Готово</button></div>`, (c) => { c.querySelector('#m-ok').onclick = closeModal; });
 }
 
 // ---------- главная: друзья и лс
@@ -281,7 +281,7 @@ async function openHome() {
   S.channel = null;
   renderRail();
   $('#members').innerHTML = '';
-  $('#side-head').innerHTML = '<span>личные сообщения</span>';
+  $('#side-head').innerHTML = '<span>Личные сообщения</span>';
   await refreshHome();
   showFriends();
 }
@@ -295,7 +295,7 @@ async function refreshHome() {
 
 function renderHomeSide() {
   $('#side-list').innerHTML =
-    `<div class="item ${!S.channel ? 'on' : ''}" data-act="friends">${ic('friends')} друзья</div><div class="cat">личные сообщения</div>` +
+    `<div class="item ${!S.channel ? 'on' : ''}" data-act="friends">${ic('friends')} друзья</div><div class="cat">Личные сообщения</div>` +
     S.dms.map((d) => `<div class="item ${S.channel?.id === d.id ? 'on' : ''}" data-dm="${d.id}" data-name="${esc(d.username)}">${avatar(d.username, 24, d.online)}<span class="grow">${esc(d.username)}</span>${badge(S.unread[d.id])}</div>`).join('');
   $('#side-list').onclick = (e) => {
     const t = e.target.closest('.item');
@@ -308,24 +308,24 @@ function renderHomeSide() {
 
 function showFriends() {
   $('#main-head').innerHTML = burger() + `<div class="tabs">${['friends', 'incoming', 'add'].map((t) =>
-    `<button class="${S.homeTab === t ? 'on' : ''}" data-tab="${t}">${{ friends: 'друзья', incoming: 'запросы', add: 'добавить' }[t]}</button>`).join('')}</div>`;
+    `<button class="${S.homeTab === t ? 'on' : ''}" data-tab="${t}">${{ friends: 'Друзья', incoming: 'Запросы', add: 'Добавить' }[t]}</button>`).join('')}</div>`;
   $('#main-head').onclick = (e) => { const t = e.target.closest('[data-tab]'); if (t) { S.homeTab = t.dataset.tab; showFriends(); } else burgerClick(e); };
   const v = $('#view');
   if (S.homeTab === 'add') {
-    v.innerHTML = `<div class="home"><h3>добавить друга</h3><div class="muted">введи ник пользователя</div>
-      <div class="addfriend"><input id="f-name" placeholder="ник"><button id="f-send">отправить</button></div><div id="f-msg" class="muted"></div></div>`;
+    v.innerHTML = `<div class="home"><h3>Добавить друга</h3><div class="muted">Введи ник пользователя</div>
+      <div class="addfriend"><input id="f-name" placeholder="Ник"><button id="f-send">Отправить</button></div><div id="f-msg" class="muted"></div></div>`;
     $('#f-send').onclick = async () => {
-      try { await api('/friends', { body: { username: $('#f-name').value } }); $('#f-msg').textContent = 'запрос отправлен'; await refreshHome(); }
+      try { await api('/friends', { body: { username: $('#f-name').value } }); $('#f-msg').textContent = 'Запрос отправлен'; await refreshHome(); }
       catch (e) { $('#f-msg').innerHTML = `<span class="error">${esc(e.message)}</span>`; }
     };
     return;
   }
   const list = S.friends.filter((f) => (S.homeTab === 'friends' ? f.status === 'friend' : f.status !== 'friend'));
   v.innerHTML = `<div class="home">${list.length ? list.map((f) => `
-    <div class="row">${avatar(f.username, 36, f.status === 'friend' ? f.online : undefined)}<div class="grow"><b>${esc(f.username)}</b>${f.status === 'outgoing' ? '<div class="muted">запрос отправлен</div>' : ''}</div>
-    ${f.status === 'friend' ? `<button data-dm="${f.id}">сообщение</button>` : ''}
-    ${f.status === 'incoming' ? `<button data-acc="${f.id}">принять</button>` : ''}
-    <button class="ghost" data-del="${f.id}" aria-label="удалить">${ic('close')}</button></div>`).join('') : '<div class="empty"><b>здесь пока пусто</b>добавь друзей по нику</div>'}</div>`;
+    <div class="row">${avatar(f.username, 36, f.status === 'friend' ? f.online : undefined)}<div class="grow"><b>${esc(f.username)}</b>${f.status === 'outgoing' ? '<div class="muted">Запрос отправлен</div>' : ''}</div>
+    ${f.status === 'friend' ? `<button data-dm="${f.id}">Сообщение</button>` : ''}
+    ${f.status === 'incoming' ? `<button data-acc="${f.id}">Принять</button>` : ''}
+    <button class="ghost" data-del="${f.id}" aria-label="Удалить">${ic('close')}</button></div>`).join('') : '<div class="empty"><b>Здесь пока пусто</b>Добавь друзей по нику</div>'}</div>`;
   v.onclick = async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
@@ -348,24 +348,24 @@ async function openServer(id, channelId) {
   renderServerSide();
   renderMembers();
   if (target) openChannel(target);
-  else { $('#view').innerHTML = '<div class="empty"><b>каналов нет</b>владелец сервера может создать первый</div>'; $('#main-head').innerHTML = burger(); }
+  else { $('#view').innerHTML = '<div class="empty"><b>Каналов нет</b>Владелец сервера может создать первый</div>'; $('#main-head').innerHTML = burger(); }
 }
 
 function renderServerSide() {
   const { server, channels } = S.server;
   const owner = server.owner_id === S.user.id;
   const canCh = can(PERM.CHANNELS);
-  $('#side-head').innerHTML = `<span>${esc(server.name)}</span><span><button class="icon-btn" id="inv" title="пригласить" aria-label="пригласить">${ic('userplus')}</button>${can(PERM.SERVER | PERM.ROLES | PERM.KICK | PERM.CHANNELS) ? `<button class="icon-btn" id="srv-set" title="настройки сервера" aria-label="настройки сервера">${ic('settings')}</button>` : ''}<button class="icon-btn" id="leave" title="${owner ? 'удалить сервер' : 'выйти'}" aria-label="меню сервера">${ic('more')}</button></span>`;
+  $('#side-head').innerHTML = `<span>${esc(server.name)}</span><span><button class="icon-btn" id="inv" title="Пригласить" aria-label="Пригласить">${ic('userplus')}</button>${can(PERM.SERVER | PERM.ROLES | PERM.KICK | PERM.CHANNELS) ? `<button class="icon-btn" id="srv-set" title="Настройки сервера" aria-label="Настройки сервера">${ic('settings')}</button>` : ''}<button class="icon-btn" id="leave" title="${owner ? 'Удалить сервер' : 'Выйти'}" aria-label="Меню сервера">${ic('more')}</button></span>`;
   $('#inv').onclick = inviteModal;
   if ($('#srv-set')) $('#srv-set').onclick = serverSettingsModal;
   $('#leave').onclick = async () => {
-    if (!confirm(owner ? 'удалить сервер навсегда?' : 'выйти с сервера?')) return;
+    if (!confirm(owner ? 'Удалить сервер навсегда?' : 'Выйти с сервера?')) return;
     await api(`/servers/${server.id}`, { method: 'DELETE' }); await loadServers(); openHome();
   };
   const group = (type, title) => `<div class="cat"><span>${title}</span>${canCh ? `<button data-add="${type}" title="Создать канал" aria-label="Создать канал">${ic('plus')}</button>` : ''}</div>` +
     channels.filter((c) => c.type === type).map((c) => `<div class="item ${S.channel?.id === c.id ? 'on' : ''}" data-ch="${c.id}">${ic(c.is_private ? 'lock' : type === 'text' ? 'hash' : 'speaker')} <span class="grow">${esc(c.name)}</span>${canCh ? `<button class="icon-btn ch-gear" data-gear="${c.id}" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}${badge(S.unread[c.id])}</div>` +
       (type === 'voice' ? `<div class="voice-users" id="vu-${c.id}">${(S.voiceUsers[c.id] || []).map((n) => `<div>• ${esc(n)}</div>`).join('')}</div>` : '')).join('');
-  $('#side-list').innerHTML = `<div class="item ${S.serverFeed ? 'on' : ''}" data-sfeed="1">${ic('globe')} <span class="grow">лента сервера</span></div>` + group('text', 'текстовые каналы') + group('voice', 'голосовые каналы');
+  $('#side-list').innerHTML = `<div class="item ${S.serverFeed ? 'on' : ''}" data-sfeed="1">${ic('globe')} <span class="grow">Лента сервера</span></div>` + group('text', 'Текстовые каналы') + group('voice', 'Голосовые каналы');
   $('#side-list').onclick = (e) => {
     const g = e.target.closest('[data-gear]');
     if (g) { e.stopPropagation(); return channelSettings(channels.find((c) => c.id === Number(g.dataset.gear))); }
@@ -383,16 +383,16 @@ function renderMembers() {
   const { members, server } = S.server;
   const owner = can(PERM.KICK);
   const online = members.filter((m) => m.online).length;
-  $('#members').innerHTML = `<div class="cat">участники — ${members.length}${online ? ` · в сети ${online}` : ''}</div>` + members.map((m) =>
-    `<div class="item" data-user="${esc(m.username)}">${avatar(m.username, 24, m.online)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis${m.color ? ';color:' + m.color : ''}">${esc(m.username)}${m.id === server.owner_id ? ' <span class="muted" style="font-size:12px">· владелец</span>' : ''}</span>${owner && m.id !== S.user.id && m.id !== server.owner_id ? `<button class="icon-btn" data-kick="${m.id}" title="исключить" aria-label="исключить">${ic('close')}</button>` : ''}</div>`).join('');
+  $('#members').innerHTML = `<div class="cat">Участники — ${members.length}${online ? ` · в сети ${online}` : ''}</div>` + members.map((m) =>
+    `<div class="item" data-user="${esc(m.username)}">${avatar(m.username, 24, m.online)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis${m.color ? ';color:' + m.color : ''}">${esc(m.username)}${m.id === server.owner_id ? ' <span class="muted" style="font-size:12px">· владелец</span>' : ''}</span>${owner && m.id !== S.user.id && m.id !== server.owner_id ? `<button class="icon-btn" data-kick="${m.id}" title="Исключить" aria-label="Исключить">${ic('close')}</button>` : ''}</div>`).join('');
   $('#members').onclick = async (e) => {
     const k = e.target.closest('[data-kick]');
-    if (k) { e.stopPropagation(); if (confirm('исключить участника?')) { await api(`/servers/${server.id}/kick/${k.dataset.kick}`, { method: 'POST' }); openServer(server.id, S.channel?.id); } }
+    if (k) { e.stopPropagation(); if (confirm('Исключить участника?')) { await api(`/servers/${server.id}/kick/${k.dataset.kick}`, { method: 'POST' }); openServer(server.id, S.channel?.id); } }
   };
 }
 
 // ---------- каналы
-function burger() { return `<button class="icon-btn burger" data-burger="1" aria-label="меню">${ic('menu')}</button>`; }
+function burger() { return `<button class="icon-btn burger" data-burger="1" aria-label="Меню">${ic('menu')}</button>`; }
 function burgerClick(e) { if (e.target.closest('[data-burger]')) $('#app').classList.toggle('show-side'); }
 
 function openChannel(ch) {
@@ -406,14 +406,14 @@ function openChannel(ch) {
   if (S.unread[ch.id]) { delete S.unread[ch.id]; recountUnread?.(); }
   if (S.view.type === 'server') renderServerSide(); else renderHomeSide();
   renderRail();
-  $('#main-head').innerHTML = `${burger()}<span class="muted">${ch.type === 'dm' ? '@' : ic(ch.is_private ? 'lock' : 'hash')}</span> <span>${esc(ch.name)}</span>${ch.topic ? `<span class="ch-topic grow" title="${esc(ch.topic)}">${esc(ch.topic)}</span>` : '<span class="grow"></span>'}${ch.slowmode ? `<span class="muted small slow-tag" title="Медленный режим">${ic('clock')} ${slowLabel(ch.slowmode)}</span>` : ''}${S.view.type === 'server' && can(PERM.CHANNELS) ? `<button class="icon-btn" id="ch-set" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}${S.view.type === 'server' ? `<button class="icon-btn ${S.prefs.hideMembers ? '' : 'on'}" id="mem-tg" title="${S.prefs.hideMembers ? 'Показать участников' : 'Скрыть участников'}" aria-label="Список участников" aria-pressed="${!S.prefs.hideMembers}">${ic('users')}</button>` : ''}<button class="icon-btn" id="pins" title="Закреплённые" aria-label="Закреплённые">${ic('pin')}</button>`;
-  $('#main-head').onclick = (e) => { burgerClick(e); if (e.target.closest('#pins')) pinsModal(); if (e.target.closest('#ch-set')) channelSettings(ch); if (e.target.closest('#mem-tg')) toggleMembers(); };
+  $('#main-head').innerHTML = `${burger()}<span class="muted">${ch.type === 'dm' ? '@' : ic(ch.is_private ? 'lock' : 'hash')}</span> <span>${esc(ch.name)}</span>${ch.topic ? `<span class="ch-topic grow" title="${esc(ch.topic)}">${esc(ch.topic)}</span>` : '<span class="grow"></span>'}${ch.slowmode ? `<span class="muted small slow-tag" title="Медленный режим">${ic('clock')} ${slowLabel(ch.slowmode)}</span>` : ''}${S.view.type === 'server' && can(PERM.CHANNELS) ? `<button class="icon-btn" id="ch-set" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}${S.view.type === 'server' ? `<button class="icon-btn ${S.prefs.hideMembers ? '' : 'on'}" id="mem-tg" title="${S.prefs.hideMembers ? 'Показать участников' : 'Скрыть участников'}" aria-label="Список участников" aria-pressed="${!S.prefs.hideMembers}">${ic('users')}</button>` : ''}<button class="icon-btn" id="threads" title="Ветки" aria-label="Ветки">${ic('thread')}</button><button class="icon-btn" id="pins" title="Закреплённые" aria-label="Закреплённые">${ic('pin')}</button>`;
+  $('#main-head').onclick = (e) => { burgerClick(e); if (e.target.closest('#pins')) pinsModal(); if (e.target.closest('#threads')) threadsPopover(); if (e.target.closest('#ch-set')) channelSettings(ch); if (e.target.closest('#mem-tg')) toggleMembers(); };
   const v = $('#view');
   v.onclick = null;
   v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
   v.innerHTML = `<div class="msgs" id="msgs"></div><div class="typing" id="typing"></div><div id="pf"></div><div id="reply-bar"></div>${ch.slowmode && ch.type !== 'dm' && !can(PERM.MESSAGES) ? `<div class="slow-note">${ic('clock')} Медленный режим: ${slowLabel(ch.slowmode)}</div>` : ''}
-    <div class="composer"><button class="clip" id="clip" title="${S.config.files ? 'прикрепить файл' : 'файлы пока отключены'}" aria-label="прикрепить файл" ${S.config.files ? '' : 'disabled'}>${ic('plus')}</button>
-    <textarea id="inp" rows="1" placeholder="написать в ${ch.type === 'dm' ? '@' : '#'}${esc(ch.name)}"></textarea>${S.config.files && window.MediaRecorder ? `<button class="clip" id="vnote" title="голосовое сообщение" aria-label="голосовое сообщение">${ic('mic')}</button>` : ''}<button id="send" aria-label="отправить">${ic('send')}</button></div>
+    <div class="composer"><button class="clip" id="clip" title="${S.config.files ? 'Прикрепить файл' : 'Файлы пока отключены'}" aria-label="Прикрепить файл" ${S.config.files ? '' : 'disabled'}>${ic('plus')}</button>
+    <textarea id="inp" rows="1" placeholder="Написать в ${ch.type === 'dm' ? '@' : '#'}${esc(ch.name)}"></textarea>${S.config.files && window.MediaRecorder ? `<button class="clip" id="vnote" title="Голосовое сообщение" aria-label="Голосовое сообщение">${ic('mic')}</button>` : ''}<button id="send" aria-label="Отправить">${ic('send')}</button></div>
     <input type="file" id="file" class="hidden">`;
   S.pendingFile = null;
   loadMessages(ch.id);
@@ -431,10 +431,10 @@ function openChannel(ch) {
   $('#file').onchange = async (e) => {
     const f = e.target.files[0];
     if (!f) return;
-    $('#pf').innerHTML = `<div class="pending-file"><span>загрузка: ${esc(f.name)}…</span></div>`;
+    $('#pf').innerHTML = `<div class="pending-file"><span>Загрузка: ${esc(f.name)}…</span></div>`;
     try {
       S.pendingFile = await uploadFile(f);
-      $('#pf').innerHTML = `<div class="pending-file"><span>${esc(f.name)}</span><a href="#" id="pf-x">убрать</a></div>`;
+      $('#pf').innerHTML = `<div class="pending-file"><span>${esc(f.name)}</span><a href="#" id="pf-x">Убрать</a></div>`;
       $('#pf-x').onclick = (ev) => { ev.preventDefault(); S.pendingFile = null; $('#pf').innerHTML = ''; };
     } catch (er) { $('#pf').innerHTML = `<div class="pending-file error">${esc(er.message)}</div>`; }
     e.target.value = '';
@@ -446,12 +446,12 @@ async function toggleVoiceNote() {
   const btn = $('#vnote');
   if (rec) { rec.stop(); return; }
   let stream;
-  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { return toast('нет доступа к микрофону'); }
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { return toast('Нет доступа к микрофону'); }
   const chunks = [], t0 = Date.now(), cid = S.channel.id;
   const r = new MediaRecorder(stream);
   rec = r;
   btn.classList.add('recording'); btn.innerHTML = ic('stop');
-  $('#pf').innerHTML = '<div class="pending-file"><span>идёт запись… нажми ещё раз, чтобы отправить</span></div>';
+  $('#pf').innerHTML = '<div class="pending-file"><span>Идёт запись… нажми ещё раз, чтобы отправить</span></div>';
   r.ondataavailable = (e) => chunks.push(e.data);
   r.onstop = async () => {
     stream.getTracks().forEach((t) => t.stop());
@@ -460,7 +460,7 @@ async function toggleVoiceNote() {
     $('#pf') && ($('#pf').innerHTML = '');
     if (Date.now() - t0 < 700) return;
     try {
-      const att = await uploadFile(new File([new Blob(chunks, { type: 'audio/webm' })], `голосовое-${Date.now()}.webm`, { type: 'audio/webm' }));
+      const att = await uploadFile(new File([new Blob(chunks, { type: 'audio/webm' })], `Голосовое-${Date.now()}.webm`, { type: 'audio/webm' }));
       await api(`/channels/${cid}/messages`, { body: { content: '', ...att } });
     } catch (er) { toast(er.message); }
   };
@@ -474,15 +474,9 @@ function setReply(m) {
   S.replyTo = m ? m.id : null;
   const bar = $('#reply-bar');
   if (!bar) return;
-  bar.innerHTML = m ? `<div class="reply-bar">${ic('reply')}<span class="grow">ответ ${esc(m.username)}: ${esc((m.content || 'вложение').slice(0, 80))}</span><button class="icon-btn" id="rb-x" aria-label="отменить">${ic('close')}</button></div>` : '';
+  bar.innerHTML = m ? `<div class="reply-bar">${ic('reply')}<span class="grow">Ответ ${esc(m.username)}: ${esc((m.content || 'Вложение').slice(0, 80))}</span><button class="icon-btn" id="rb-x" aria-label="Отменить">${ic('close')}</button></div>` : '';
   if (m) { $('#rb-x').onclick = () => setReply(null); $('#inp')?.focus(); }
 }
-async function pinsModal() {
-  const d = await api(`/channels/${S.channel.id}/pins`);
-  modal(`<h3>закреплённые</h3><div class="pins">${d.messages.length ? d.messages.map((m) => `<div class="pin-row"><b>${esc(m.username)}</b> <span class="muted">${fmtTime(m.created_at)}</span><div>${linkify(m.content)}</div></div>`).join('') : '<div class="muted">пока ничего не закреплено</div>'}</div>
-    <div class="modal-actions"><button id="m-ok">закрыть</button></div>`, (c) => { c.querySelector('#m-ok').onclick = closeModal; });
-}
-
 async function sendMessage() {
   const inp = $('#inp');
   const content = inp.value;
@@ -512,18 +506,19 @@ function msgHtml(m, prev) {
   const when = fmtTime(m.created_at);
   const gutter = `<div class="gutter">${cont ? '' : `<span data-user="${esc(m.username)}" class="clickable">${avatar(m.username, 36)}</span>`}</div>`;
   const name = cont ? '' : `<div class="who"><a href="#" data-user="${esc(m.username)}"${m.role_color ? ` style="color:${m.role_color}"` : ''}>${esc(m.username)}</a></div>`;
-  const quote = m.reply_to ? `<div class="quote" data-jump="${m.reply_to}"><b>${esc(m.reply_name || '?')}</b> ${esc(m.reply_content || 'сообщение удалено')}</div>` : '';
+  const quote = m.reply_to ? `<div class="quote" data-jump="${m.reply_to}"><b>${esc(m.reply_name || '?')}</b> ${esc(m.reply_content || 'Сообщение удалено')}</div>` : '';
   const reacts = (m.reactions || []).length ? `<div class="reacts">${m.reactions.map((r) => `<button class="react ${r.users.includes(S.user.id) ? 'on' : ''}" data-react="${r.emoji}">${r.emoji} <span>${r.users.length}</span></button>`).join('')}</div>` : '';
   const linked = m.content ? linkify(m.content) : '';
   const tools = `<div class="mtools">
-    <button data-tool="react" title="реакция" aria-label="реакция">${ic('smile')}</button>
-    <button data-tool="reply" title="ответить" aria-label="ответить">${ic('reply')}</button>
-    ${mine ? `<button data-tool="edit" title="изменить" aria-label="изменить">${ic('edit')}</button>` : ''}
-    ${!S.server || owner ? `<button data-tool="pin" title="закрепить" aria-label="закрепить">${ic('pin')}</button>` : ''}
-    ${!mine ? `<button data-tool="report" title="пожаловаться" aria-label="пожаловаться">${ic('flag')}</button>` : ''}
-    ${mine || owner ? `<button data-tool="del" title="удалить" aria-label="удалить">${ic('trash')}</button>` : ''}</div>`;
+    <button data-tool="react" title="Реакция" aria-label="Реакция">${ic('smile')}</button>
+    <button data-tool="reply" title="Ответить" aria-label="Ответить">${ic('reply')}</button>
+    ${m.thread_id ? '' : `<button data-tool="thread" title="Ветка" aria-label="Ветка">${ic('thread')}</button>`}
+    ${mine ? `<button data-tool="edit" title="Изменить" aria-label="Изменить">${ic('edit')}</button>` : ''}
+    ${!S.server || owner ? `<button data-tool="pin" title="Закрепить" aria-label="Закрепить">${ic('pin')}</button>` : ''}
+    ${!mine ? `<button data-tool="report" title="Пожаловаться" aria-label="Пожаловаться">${ic('flag')}</button>` : ''}
+    ${mine || owner ? `<button data-tool="del" title="Удалить" aria-label="Удалить">${ic('trash')}</button>` : ''}</div>`;
   return `<div class="msg ${mine ? 'own' : ''} ${cont ? 'cont' : ''} ${m.pinned ? 'is-pinned' : ''}" data-id="${m.id}" data-uid="${m.user_id}" data-t="${m.created_at}">${gutter}<div class="body">${name}
-    ${quote}${linked ? `<div class="bubble" title="${when}">${linked}${m.edited_at ? ' <span class="edited">(изм.)</span>' : ''}${m.pinned ? `<span class="pin-mark">${ic('pin')}</span>` : ''}</div>` : ''}${att}${reacts}${tools}</div></div>`;
+    ${quote}${linked ? `<div class="bubble" title="${when}">${linked}${m.edited_at ? ' <span class="edited">(изм.)</span>' : ''}${m.pinned ? `<span class="pin-mark">${ic('pin')}</span>` : ''}</div>` : ''}${att}${reacts}${m.thread_count ? `<button class="thread-link" data-thread="${m.id}">${ic('thread')} ${plural(m.thread_count, 'ответ', 'ответа', 'ответов')} ›</button>` : ''}${tools}</div></div>`;
 }
 function prevInfo(el) {
   const p = el?.previousElementSibling;
@@ -541,7 +536,7 @@ async function loadMessages(cid) {
   const d = await api(`/channels/${cid}/messages`);
   if (S.channel?.id !== cid) return;
   const box = $('#msgs');
-  box.innerHTML = d.messages.length ? d.messages.map((m, i) => msgHtml(m, d.messages[i - 1])).join('') : '<div class="empty"><b>здесь пока тихо</b>напиши первое сообщение</div>';
+  box.innerHTML = d.messages.length ? d.messages.map((m, i) => msgHtml(m, d.messages[i - 1])).join('') : '<div class="empty"><b>Здесь пока тихо</b>Напиши первое сообщение</div>';
   box.scrollTop = box.scrollHeight;
   api(`/channels/${cid}/read`, { method: 'POST' }).catch(() => {});
   box.onclick = async (e) => {
@@ -552,6 +547,7 @@ async function loadMessages(cid) {
     const row = e.target.closest('.msg');
     if (!row) return;
     const id = Number(row.dataset.id), m = S.msgs[id];
+    if (e.target.closest('[data-thread]')) return openMsgThread(id);
     const re = e.target.closest('[data-react]');
     if (re) return api(`/messages/${id}/react`, { body: { emoji: re.dataset.react } });
     const t = e.target.closest('[data-tool]');
@@ -559,7 +555,8 @@ async function loadMessages(cid) {
     const tool = t.dataset.tool;
     if (tool === 'del') await api(`/messages/${id}`, { method: 'DELETE' });
     else if (tool === 'reply') setReply(m);
-    else if (tool === 'pin') { const r = await api(`/messages/${id}/pin`, { method: 'POST' }); toast(r.pinned ? 'закреплено' : 'откреплено'); }
+    else if (tool === 'thread') openMsgThread(id);
+    else if (tool === 'pin') { const r = await api(`/messages/${id}/pin`, { method: 'POST' }); toast(r.pinned ? 'Закреплено' : 'Откреплено'); }
     else if (tool === 'report') reportModal('message', id);
     else if (tool === 'edit') editMsg(row, m);
     else if (tool === 'react') {
@@ -603,7 +600,9 @@ function connectWs(cid) {
     const d = JSON.parse(e.data);
     const box = $('#msgs');
     if (!box || S.channel?.id !== cid) return;
-    if (d.type === 'message') {
+    if (d.type === 'message' && d.message.thread_id) {
+      onThreadMessage(d.message);
+    } else if (d.type === 'message') {
       const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
       if (box.querySelector('.empty')) box.innerHTML = '';
       const last = box.lastElementChild;
@@ -612,6 +611,7 @@ function connectWs(cid) {
       if (d.message.user_id !== S.user.id) api(`/channels/${cid}/read`, { method: 'POST' }).catch(() => {});
     } else if (d.type === 'delete') {
       box.querySelector(`.msg[data-id="${d.id}"]`)?.remove();
+      document.querySelector(`#thread-panel .tmsg[data-id="${d.id}"]`)?.remove();
       delete S.msgs[d.id];
     } else if (d.type === 'edit') {
       S.msgs[d.message.id] = { ...S.msgs[d.message.id], ...d.message };
@@ -651,8 +651,8 @@ function renderVoiceView() {
   const v = $('#view');
   const inThis = S.voice && S.voice.channelId === ch.id;
   if (!inThis) {
-    v.innerHTML = `<div class="voice-room"><h3>${esc(ch.name)}</h3><div class="muted">голосовой канал. нужен доступ к микрофону.</div>
-      <div><button id="vjoin">подключиться</button></div></div>`;
+    v.innerHTML = `<div class="voice-room"><h3>${esc(ch.name)}</h3><div class="muted">Голосовой канал. нужен доступ к микрофону.</div>
+      <div><button id="vjoin">Подключиться</button></div></div>`;
     $('#vjoin').onclick = () => joinVoice(ch);
     return;
   }
@@ -660,8 +660,8 @@ function renderVoiceView() {
   const tiles = [{ name: S.user.username + ' (ты)', cid: 'me' }, ...Object.entries(S.voice.peers).map(([cid, p]) => ({ name: p.name, cid }))];
   v.innerHTML = `<div class="voice-room"><h3>${esc(ch.name)}</h3><div id="stage" class="stage"></div><div class="tiles">${tiles.map((t) =>
     `<div class="tile" id="tile-${t.cid}">${avatar(t.name, 48)}<div>${esc(t.name)}</div></div>`).join('')}</div>
-    <div><button id="vmute" class="ghost btn-ic">${ic(S.voice.muted ? 'micoff' : 'mic')} ${S.voice.muted ? 'включить микрофон' : 'выключить микрофон'}</button> ${canShare ? `<button id="vshare" class="ghost btn-ic">${ic('screen')} ${S.voice.screen ? 'остановить показ' : 'показать экран'}</button>` : ''} <button id="vclip" class="ghost btn-ic ${S.voice.watch ? '' : 'hidden'}" title="сохранить последние ~30 секунд">${ic('scissors')} клип</button> <button id="vleave" class="danger">выйти из канала</button></div>
-    <div class="muted small">${canShare ? 'во время показа экрана любой участник может нажать «клип» — последние ~30 секунд сохранятся в ленту.' : 'показ экрана доступен в десктопных браузерах.'}</div></div>`;
+    <div><button id="vmute" class="ghost btn-ic">${ic(S.voice.muted ? 'micoff' : 'mic')} ${S.voice.muted ? 'Включить микрофон' : 'Выключить микрофон'}</button> ${canShare ? `<button id="vshare" class="ghost btn-ic">${ic('screen')} ${S.voice.screen ? 'Остановить показ' : 'Показать экран'}</button>` : ''} <button id="vclip" class="ghost btn-ic ${S.voice.watch ? '' : 'hidden'}" title="Сохранить последние ~30 секунд">${ic('scissors')} клип</button> <button id="vleave" class="danger">Выйти из канала</button></div>
+    <div class="muted small">${canShare ? 'Во время показа экрана любой участник может нажать «клип» — последние ~30 секунд сохранятся в ленту.' : 'Показ экрана доступен в десктопных браузерах.'}</div></div>`;
   $('#vshare')?.addEventListener('click', () => (S.voice.screen ? stopShare() : startShare()));
   $('#vclip')?.addEventListener('click', makeClip);
   renderStage?.();
@@ -673,7 +673,7 @@ async function joinVoice(ch) {
   if (S.voice) leaveVoice();
   let stream;
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
-  catch { return alert('нет доступа к микрофону'); }
+  catch { return alert('Нет доступа к микрофону'); }
   const ws = new WebSocket(wsUrl('voice', ch.id));
   S.voice = { channelId: ch.id, name: ch.name, stream, ws, peers: {}, pcs: {}, muted: false };
   const V = S.voice;
@@ -772,7 +772,7 @@ function updateVoiceBar() {
   const b = $('#voice-bar');
   if (!S.voice) return b.classList.add('hidden');
   b.classList.remove('hidden');
-  b.innerHTML = `<div><b>голос подключён</b><div class="muted">${esc(S.voice.name)}</div></div><div><button class="icon-btn" id="vb-mute">${ic(S.voice.muted ? 'micoff' : 'mic')}</button><button class="icon-btn" id="vb-leave" aria-label="выйти из канала">${ic('close')}</button></div>`;
+  b.innerHTML = `<div><b>Голос подключён</b><div class="muted">${esc(S.voice.name)}</div></div><div><button class="icon-btn" id="vb-mute">${ic(S.voice.muted ? 'micoff' : 'mic')}</button><button class="icon-btn" id="vb-leave" aria-label="Выйти из канала">${ic('close')}</button></div>`;
   $('#vb-mute').onclick = toggleMute;
   $('#vb-leave').onclick = leaveVoice;
 }
@@ -783,53 +783,6 @@ function toggleMembers() {
   $('#app').classList.toggle('no-members', !!S.prefs.hideMembers);
   const b = $('#mem-tg');
   if (b) { b.classList.toggle('on', !S.prefs.hideMembers); b.title = S.prefs.hideMembers ? 'Показать участников' : 'Скрыть участников'; b.setAttribute('aria-pressed', String(!S.prefs.hideMembers)); }
-}
-
-// ---- анимация «Mosaic resolve»: логотип собирается из крупных пикселей в чёткую картинку
-// убрать совсем: в настройках «Внешний вид» или удалить эту функцию и два вызова mosaicResolve
-function mosaicResolve(host, duration = 1100) {
-  const svg = host?.querySelector('svg');
-  if (!svg || S.prefs.mosaic === false || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const r = svg.getBoundingClientRect();
-  if (!r.width || !r.height) return;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const W = Math.round(r.width * dpr), H = Math.round(r.height * dpr);
-  const cs = getComputedStyle(svg);
-  const src = new XMLSerializer().serializeToString(svg)
-    .replace(/currentColor/g, cs.color)
-    .replace(/var\(--bg,#000\)/g, cs.getPropertyValue('--bg').trim() || '#000')
-    .replace('<svg ', `<svg width="${W}" height="${H}" `);
-  const img = new Image();
-  img.onload = () => {
-    const cv = document.createElement('canvas');
-    cv.width = W; cv.height = H;
-    cv.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none';
-    const pos = getComputedStyle(host).position;
-    if (pos === 'static') host.style.position = 'relative';
-    host.appendChild(cv);
-    svg.style.visibility = 'hidden';
-    const ctx = cv.getContext('2d');
-    const tiny = document.createElement('canvas'), tctx = tiny.getContext('2d');
-    const t0 = performance.now();
-    const frame = (now) => {
-      const k = Math.min(1, (now - t0) / duration);
-      // размер блока: от крупного к 1px, быстро в начале и мягко в конце
-      const block = Math.max(1, Math.round(Math.pow(1 - k, 2.2) * H / 2.2));
-      if (block <= 1 || k >= 1) { cv.remove(); svg.style.visibility = ''; return; }
-      tiny.width = Math.max(1, Math.ceil(W / block)); tiny.height = Math.max(1, Math.ceil(H / block));
-      tctx.clearRect(0, 0, tiny.width, tiny.height);
-      tctx.imageSmoothingEnabled = true;
-      tctx.drawImage(img, 0, 0, tiny.width, tiny.height);
-      ctx.clearRect(0, 0, W, H);
-      ctx.imageSmoothingEnabled = false;
-      ctx.globalAlpha = 0.35 + 0.65 * k;
-      ctx.drawImage(tiny, 0, 0, tiny.width, tiny.height, 0, 0, tiny.width * block, tiny.height * block);
-      requestAnimationFrame(frame);
-    };
-    requestAnimationFrame(frame);
-  };
-  img.onerror = () => {};
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(src);
 }
 
 // ---- подсказки у иконок слева (как в Discord)

@@ -65,6 +65,8 @@ const MSG_SELECT = `SELECT m.id, m.channel_id, m.user_id, u.username, u.avatar_k
   m.att_key, m.att_name, m.att_type, m.created_at, m.reply_to, m.edited_at, m.pinned,
   (SELECT substr(r.content, 1, 120) FROM messages r WHERE r.id = m.reply_to) AS reply_content,
   (SELECT ru.username FROM messages r JOIN users ru ON ru.id = r.user_id WHERE r.id = m.reply_to) AS reply_name,
+  m.thread_id,
+  (SELECT COUNT(*) FROM messages t WHERE t.thread_id = m.id) AS thread_count,
   (SELECT r.color FROM member_roles mr JOIN roles r ON r.id = mr.role_id WHERE mr.user_id = m.user_id AND r.server_id = (SELECT server_id FROM channels WHERE id = m.channel_id) AND r.color IS NOT NULL ORDER BY r.position, r.id LIMIT 1) AS role_color
   FROM messages m JOIN users u ON u.id = m.user_id`;
 
@@ -402,7 +404,7 @@ async function handleApi(req, env, url) {
     if (!ch) return err('нет доступа', 403);
     if (m === 'GET') {
       const before = Number(url.searchParams.get('before')) || 9e15;
-      const { results } = await env.DB.prepare(`${MSG_SELECT} WHERE m.channel_id=? AND m.id<? ORDER BY m.id DESC LIMIT 50`)
+      const { results } = await env.DB.prepare(`${MSG_SELECT} WHERE m.channel_id=? AND m.id<? AND m.thread_id IS NULL ORDER BY m.id DESC LIMIT 50`)
         .bind(cid, before).all();
       return json({ messages: await enrichMessages(env, results.reverse()) });
     }
@@ -417,14 +419,20 @@ async function handleApi(req, env, url) {
           if (wait > 0) return err(`медленный режим: подожди ещё ${wait} с`, 429);
         }
       }
+      let threadId = null;
+      if (b.thread_id) {
+        const root = await env.DB.prepare('SELECT id FROM messages WHERE id=? AND channel_id=? AND thread_id IS NULL').bind(Number(b.thread_id), cid).first();
+        if (!root) return err('ветка не найдена', 404);
+        threadId = root.id;
+      }
       let replyTo = null;
       if (b.reply_to) {
         const rm = await env.DB.prepare('SELECT id FROM messages WHERE id=? AND channel_id=?').bind(Number(b.reply_to), cid).first();
         replyTo = rm?.id || null;
       }
       const r = await env.DB.prepare(
-        'INSERT INTO messages (channel_id, user_id, content, att_key, att_name, att_type, created_at, reply_to) VALUES (?,?,?,?,?,?,?,?)'
-      ).bind(cid, me.id, content, b.att_key || null, b.att_name || null, b.att_type || null, now, replyTo).run();
+        'INSERT INTO messages (channel_id, user_id, content, att_key, att_name, att_type, created_at, reply_to, thread_id) VALUES (?,?,?,?,?,?,?,?,?)'
+      ).bind(cid, me.id, content, b.att_key || null, b.att_name || null, b.att_type || null, now, replyTo, threadId).run();
       const msg = await env.DB.prepare(`${MSG_SELECT} WHERE m.id=?`).bind(r.meta.last_row_id).first();
       msg.reactions = [];
       for (const u of await mentionedUsers(env, content)) {
@@ -433,6 +441,26 @@ async function handleApi(req, env, url) {
       await broadcast(env, `text:${cid}`, { type: 'message', message: msg });
       return json({ message: msg });
     }
+  }
+  if ((mt = p.match(/^\/messages\/(\d+)\/thread$/)) && m === 'GET') {
+    const root = await env.DB.prepare(`${MSG_SELECT} WHERE m.id=?`).bind(Number(mt[1])).first();
+    if (!root || !(await channelAccess(env, me.id, root.channel_id))) return err('нет доступа', 403);
+    const { results } = await env.DB.prepare(`${MSG_SELECT} WHERE m.thread_id=? ORDER BY m.id LIMIT 200`).bind(root.id).all();
+    return json({ root: (await enrichMessages(env, [root]))[0], messages: await enrichMessages(env, results) });
+  }
+  if ((mt = p.match(/^\/channels\/(\d+)\/threads$/)) && m === 'GET') {
+    const cid = Number(mt[1]);
+    if (!(await channelAccess(env, me.id, cid))) return err('нет доступа', 403);
+    const q = (url.searchParams.get('q') || '').trim().slice(0, 40);
+    const { results } = await env.DB.prepare(
+      `SELECT m.id, substr(m.content, 1, 90) AS title, u.username, m.created_at,
+         (SELECT COUNT(*) FROM messages t WHERE t.thread_id = m.id) AS replies,
+         (SELECT MAX(t.created_at) FROM messages t WHERE t.thread_id = m.id) AS last_at
+       FROM messages m JOIN users u ON u.id = m.user_id
+       WHERE m.channel_id = ? AND m.thread_id IS NULL AND replies > 0 ${q ? 'AND m.content LIKE ?' : ''}
+       ORDER BY last_at DESC LIMIT 50`
+    ).bind(...(q ? [cid, `%${q.replace(/[%_]/g, '')}%`] : [cid])).all();
+    return json({ threads: results });
   }
   if ((mt = p.match(/^\/messages\/(\d+)$/)) && m === 'DELETE') {
     const msg = await env.DB.prepare('SELECT * FROM messages WHERE id=?').bind(Number(mt[1])).first();
@@ -445,8 +473,9 @@ async function handleApi(req, env, url) {
       await audit(env, ch.server_id, me.id, 'msg_delete', `${au?.username || '?'} в #${ch.name}`, now);
     }
     await env.DB.batch([
-      env.DB.prepare('DELETE FROM message_reactions WHERE message_id=?').bind(msg.id),
+      env.DB.prepare('DELETE FROM message_reactions WHERE message_id=? OR message_id IN (SELECT id FROM messages WHERE thread_id=?)').bind(msg.id, msg.id),
       env.DB.prepare("DELETE FROM notifications WHERE type='mention_msg' AND post_id=?").bind(msg.id),
+      env.DB.prepare('DELETE FROM messages WHERE thread_id=?').bind(msg.id),
       env.DB.prepare('DELETE FROM messages WHERE id=?').bind(msg.id),
     ]);
     await broadcast(env, `text:${msg.channel_id}`, { type: 'delete', id: msg.id });

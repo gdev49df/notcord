@@ -50,3 +50,92 @@ async function userCard(username, anchor) {
   const off = (ev) => { if (!el.contains(ev.target)) { el.remove(); document.removeEventListener('pointerdown', off, true); } };
   setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
 }
+
+// ---- всплывающие окна под шапкой (закреплённые, ветки, уведомления канала)
+function closePops() { document.querySelectorAll('.hpop').forEach((x) => x.remove()); }
+function hpop(anchor, html, onMount) {
+  closePops();
+  const el = document.createElement('div');
+  el.className = 'hpop';
+  el.innerHTML = html;
+  document.body.appendChild(el);
+  const r = anchor?.getBoundingClientRect();
+  el.style.top = (r ? r.bottom + 8 : 60) + 'px';
+  el.style.right = '12px';
+  const off = (ev) => { if (!el.contains(ev.target) && !anchor?.contains(ev.target)) { el.remove(); document.removeEventListener('pointerdown', off, true); } };
+  setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
+  onMount?.(el);
+  return el;
+}
+const fmtWhen = (t) => new Date(t).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+async function pinsModal() {
+  const anchor = $('#pins');
+  if ($('.hpop[data-k=pins]')) return closePops();
+  const d = await api(`/channels/${S.channel.id}/pins`);
+  const el = hpop(anchor, `<div class="hp-head">${ic('pin')}<b>Закреплённые сообщения</b></div>
+    <div class="hp-body">${d.messages.length ? d.messages.map((m) => `<div class="pin-row" data-jump="${m.id}"><div><b>${esc(m.username)}</b> <span class="muted small">${fmtWhen(m.created_at)}</span></div><div>${esc((m.content || m.att_name || '').slice(0, 300))}</div></div>`).join('')
+      : `<div class="hp-empty">${ic('pin')}<b>В этом канале нет закреплённых сообщений… пока что.</b></div>`}</div>
+    <div class="hp-foot"><b>Подсказка:</b> пользователи с правом на управление сообщениями могут закреплять сообщения через значок булавки на сообщении.</div>`);
+  el.dataset.k = 'pins';
+  el.querySelector('.hp-body').onclick = (e) => {
+    const j = e.target.closest('[data-jump]'); if (!j) return;
+    const t = document.querySelector(`#msgs .msg[data-id="${j.dataset.jump}"]`);
+    if (t) { closePops(); t.scrollIntoView({ block: 'center', behavior: 'smooth' }); t.classList.add('flash'); setTimeout(() => t.classList.remove('flash'), 1300); }
+  };
+}
+
+// ---- ветки
+async function threadsPopover() {
+  const anchor = $('#threads');
+  if ($('.hpop[data-k=threads]')) return closePops();
+  const cid = S.channel.id;
+  const el = hpop(anchor, `<div class="hp-head">${ic('thread')}<b>Ветки</b><div class="search-box hp-search">${ic('search')}<input id="th-q" placeholder="Поиск по названию ветки" autocomplete="off"></div></div><div class="hp-body" id="th-list"></div>`);
+  el.dataset.k = 'threads';
+  const draw = async (q = '') => {
+    const d = await api(`/channels/${cid}/threads?q=${encodeURIComponent(q)}`);
+    el.querySelector('#th-list').innerHTML = d.threads.length ? d.threads.map((t) => `<div class="pin-row" data-t="${t.id}"><div><b>${esc(t.username)}</b> <span class="muted small">${plural(t.replies, 'ответ', 'ответа', 'ответов')} · ${fmtWhen(t.last_at)}</span></div><div>${esc(t.title)}</div></div>`).join('')
+      : `<div class="hp-empty">${ic('thread')}<b>Нет веток.</b><div class="muted">Не отвлекайся от беседы: наведи на сообщение и нажми значок ветки, чтобы обсудить его отдельно.</div></div>`;
+  };
+  await draw();
+  let tm; el.querySelector('#th-q').oninput = (e) => { clearTimeout(tm); tm = setTimeout(() => draw(e.target.value), 200); };
+  el.querySelector('#th-list').onclick = (e) => { const t = e.target.closest('[data-t]'); if (t) { closePops(); openMsgThread(Number(t.dataset.t)); } };
+}
+
+function closeThreadPanel() { $('#thread-panel')?.remove(); S.thread = null; }
+const tmsgHtml = (m) => `<div class="tmsg" data-id="${m.id}">${avatar(m.username, 32)}<div class="grow"><div><a href="#" data-user="${esc(m.username)}"${m.role_color ? ` style="color:${m.role_color}"` : ''}><b>${esc(m.username)}</b></a> <span class="muted small">${fmtWhen(m.created_at)}</span>${m.user_id === S.user.id || can(PERM.MESSAGES) ? `<button class="icon-btn tdel" data-del="${m.id}" aria-label="Удалить">${ic('trash')}</button>` : ''}</div>
+  <div class="tbody">${m.content ? linkify(m.content) : ''}${m.att_key && m.att_type?.startsWith('image/') ? `<img class="att" src="${fileUrl(m.att_key)}" alt="">` : ''}</div></div></div>`;
+
+async function openMsgThread(rootId) {
+  closePops();
+  const d = await api(`/messages/${rootId}/thread`);
+  closeThreadPanel();
+  S.thread = { id: rootId, channel: d.root.channel_id };
+  const el = document.createElement('aside');
+  el.id = 'thread-panel'; el.className = 'thread-panel';
+  el.innerHTML = `<div class="hp-head">${ic('thread')}<b class="grow">Ветка</b><button class="icon-btn" id="tp-x" aria-label="Закрыть">${ic('close')}</button></div>
+    <div class="tp-root">${tmsgHtml(d.root)}</div><div class="tp-count muted small">${d.messages.length ? `${plural(d.messages.length, 'ответ', 'ответа', 'ответов')}` : 'Ответов пока нет'}</div>
+    <div class="tp-list" id="tp-list">${d.messages.map(tmsgHtml).join('')}</div>
+    <div class="tp-composer"><textarea id="tp-in" rows="1" placeholder="Ответить в ветке"></textarea><button id="tp-send" aria-label="Отправить">${ic('send')}</button></div>`;
+  document.body.appendChild(el);
+  const list = el.querySelector('#tp-list'); list.scrollTop = list.scrollHeight;
+  el.querySelector('#tp-x').onclick = closeThreadPanel;
+  const send = async () => {
+    const ta = el.querySelector('#tp-in'); const content = ta.value; if (!content.trim()) return;
+    ta.value = '';
+    try { await api(`/channels/${S.thread.channel}/messages`, { body: { content, thread_id: S.thread.id } }); } catch (er) { toast(er.message); ta.value = content; }
+  };
+  el.querySelector('#tp-send').onclick = send;
+  el.querySelector('#tp-in').onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
+  el.onclick = async (e) => { const x = e.target.closest('[data-del]'); if (x) await api(`/messages/${x.dataset.del}`, { method: 'DELETE' }); };
+  el.querySelector('#tp-in').focus();
+}
+function onThreadMessage(m) {
+  const root = S.msgs[m.thread_id];
+  if (root) { root.thread_count = (root.thread_count || 0) + 1; rerenderMsg(root); }
+  if (S.thread?.id === m.thread_id) {
+    const list = $('#tp-list'); if (!list) return;
+    list.insertAdjacentHTML('beforeend', tmsgHtml(m)); list.scrollTop = list.scrollHeight;
+    const c = $('#thread-panel .tp-count'); if (c) { const n = list.children.length; c.textContent = `${plural(n, 'ответ', 'ответа', 'ответов')}`; }
+  }
+}

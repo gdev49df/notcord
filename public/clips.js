@@ -30,7 +30,7 @@ class ClipBuffer {
   // самый «старый» активный рекордер даёт самый длинный клип
   clip() {
     const act = this.slots.map((s, i) => ({ s, i })).filter((x) => x.s && Date.now() - x.s.t0 > 3000).sort((a, b) => a.s.t0 - b.s.t0)[0];
-    if (!act) return Promise.reject(new Error('подожди пару секунд — буфер ещё наполняется'));
+    if (!act) return Promise.reject(new Error('Подожди пару секунд — буфер ещё наполняется'));
     const { s, i } = act;
     clearTimeout(s.timer);
     return new Promise((res) => {
@@ -65,13 +65,13 @@ async function startShare() {
   catch { return; }
   V.screen = scr;
   V.videos ||= {};
-  V.videos.me = { stream: scr, name: 'ты' };
+  V.videos.me = { stream: scr, name: 'Ты' };
   scr.getVideoTracks()[0].onended = () => stopShare();
   for (const [cid, pc] of Object.entries(V.pcs)) {
     scr.getTracks().forEach((t) => pc.addTrack(t, scr));
     await renegotiate(cid);
   }
-  setWatch('me', scr, 'ты');
+  setWatch('me', scr, 'Ты');
   renderVoiceView();
 }
 async function renegotiate(cid) {
@@ -103,11 +103,11 @@ function onRemoteVideo(cid, stream, track) {
   const V = S.voice;
   if (!V) return;
   V.videos ||= {};
-  V.videos[cid] = { stream, name: V.peers[cid]?.name || 'участник' };
+  V.videos[cid] = { stream, name: V.peers[cid]?.name || 'Участник' };
   const gone = () => { dropRemoteVideo(cid); };
   track.onended = gone; track.onmute = gone;
   stream.onremovetrack = gone;
-  track.onunmute = () => { V.videos[cid] = { stream, name: V.peers[cid]?.name || 'участник' }; setWatch(cid, stream, V.videos[cid].name); renderVoiceView(); };
+  track.onunmute = () => { V.videos[cid] = { stream, name: V.peers[cid]?.name || 'Участник' }; setWatch(cid, stream, V.videos[cid].name); renderVoiceView(); };
   setWatch(cid, stream, V.videos[cid].name);
   renderVoiceView();
 }
@@ -129,35 +129,35 @@ function renderStage() {
     el.autoplay = true; el.playsInline = true; el.muted = cid === 'me';
     el.srcObject = v.stream;
     box.appendChild(el);
-    box.insertAdjacentHTML('beforeend', `<span class="stage-name">${ic('screen')} ${esc(cid === 'me' ? 'твой экран' : v.name)}</span>`);
+    box.insertAdjacentHTML('beforeend', `<span class="stage-name">${ic('screen')} ${esc(cid === 'me' ? 'Твой экран' : v.name)}</span>`);
     st.appendChild(box);
   }
 }
 
 async function makeClip() {
   const w = S.voice?.watch;
-  if (!w?.buf) return toast('запись клипов не поддерживается в этом браузере');
+  if (!w?.buf) return toast('Запись клипов не поддерживается в этом браузере');
   const btn = $('#vclip');
   btn?.setAttribute('disabled', '');
   let blob;
   try { blob = await w.buf.clip(); } catch (e) { btn?.removeAttribute('disabled'); return toast(e.message); }
   btn?.removeAttribute('disabled');
   const url = URL.createObjectURL(blob);
-  modal(`<h3>клип готов</h3><video src="${url}" controls playsinline class="clip-prev"></video>
+  modal(`<h3>Клип готов</h3><video src="${url}" controls playsinline class="clip-prev"></video>
     <div class="muted small">${(blob.size / 1048576).toFixed(1)} мб${S.config.files ? '' : ' · публикация станет доступна после включения r2'}</div>
-    <textarea id="cl-text" rows="2" maxlength="300" placeholder="подпись к клипу (необязательно)"></textarea>
+    <textarea id="cl-text" rows="2" maxlength="300" placeholder="Подпись к клипу (необязательно)"></textarea>
     <div class="error" id="m-err"></div>
-    <div class="modal-actions"><a class="ghost-link" href="${url}" download="clip-${Date.now()}.webm">скачать</a><button class="ghost" id="m-cancel">отмена</button><button id="m-ok" ${S.config.files ? '' : 'disabled'}>опубликовать</button></div>`, (c) => {
+    <div class="modal-actions"><a class="ghost-link" href="${url}" download="clip-${Date.now()}.webm">Скачать</a><button class="ghost" id="m-cancel">Отмена</button><button id="m-ok" ${S.config.files ? '' : 'disabled'}>Опубликовать</button></div>`, (c) => {
     c.querySelector('#m-cancel').onclick = () => { closeModal(); URL.revokeObjectURL(url); };
     c.querySelector('#m-ok').onclick = async () => {
       const ok = c.querySelector('#m-ok');
-      ok.disabled = true; ok.textContent = 'загрузка…';
+      ok.disabled = true; ok.textContent = 'Загрузка…';
       try {
         const att = await uploadFile(new File([blob], `clip-${Date.now()}.webm`, { type: 'video/webm' }));
         const text = c.querySelector('#cl-text').value.trim();
-        await api('/posts', { body: { content: text || `клип из «${S.voice?.name || 'голосового канала'}»`, ...att } });
-        closeModal(); toast('клип опубликован в ленте');
-      } catch (er) { c.querySelector('#m-err').textContent = er.message; ok.disabled = false; ok.textContent = 'опубликовать'; }
+        await api('/posts', { body: { content: text || `Клип из «${S.voice?.name || 'Голосового канала'}»`, ...att } });
+        closeModal(); toast('Клип опубликован в ленте');
+      } catch (er) { c.querySelector('#m-err').textContent = er.message; ok.disabled = false; ok.textContent = 'Опубликовать'; }
     };
   });
 }

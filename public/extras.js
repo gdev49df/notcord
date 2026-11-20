@@ -34,7 +34,7 @@ async function syncNow() {
   if (S.view.page === 'notif' && d.notifications > prevNotif) openNotifications(true);
   const dmNow = Object.values(S.dmUnread).reduce((a, b) => a + b, 0);
   if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-    if (dmNow > prevDm) new Notification("Earth's Network", { body: 'новое личное сообщение', tag: 'dm' });
+    if (dmNow > prevDm) new Notification("Earth's Network", { body: 'Новое личное сообщение', tag: 'dm' });
     if (S.notif > prevNotif) {
       try {
         const n = (await api('/notifications')).notifications.find((x) => !x.is_read);
@@ -52,22 +52,22 @@ function startSync() {
 document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(); });
 
 // ---- уведомления
-const NOTE = { like: 'оценил(а) ваш пост', reply: 'ответил(а) на ваш пост', follow: 'подписался(ась) на вас', mention: 'упомянул(а) вас в посте', repost: 'репостнул(а) ваш пост', quote: 'процитировал(а) ваш пост', mention_msg: 'упомянул(а) вас в чате' };
-const notifText = (n) => NOTE[n.type] || 'что-то сделал(а)';
+const NOTE = { like: 'Оценил(а) ваш пост', reply: 'Ответил(а) на ваш пост', follow: 'Подписался(ась) на вас', mention: 'Упомянул(а) вас в посте', repost: 'Репостнул(а) ваш пост', quote: 'Процитировал(а) ваш пост', mention_msg: 'Упомянул(а) вас в чате' };
+const notifText = (n) => NOTE[n.type] || 'Что-то сделал(а)';
 async function openNotifications(silent) {
   if (!silent) { closeWs(); S.channel = null; S.view = { type: 'feed', page: 'notif' }; feedLayout(); renderRail(); feedSide(); }
   $('#app').classList.remove('show-side');
-  $('#main-head').innerHTML = `${burger()}<span>уведомления</span>`;
+  $('#main-head').innerHTML = `${burger()}<span>Уведомления</span>`;
   $('#main-head').onclick = burgerClick;
   const v = $('#view');
   if (!silent) { v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter'); }
   const d = await api('/notifications');
   if (S.view.page !== 'notif') return;
   const canAsk = 'Notification' in window && Notification.permission === 'default';
-  v.innerHTML = `<div class="feed">${canAsk ? `<div class="notice">показывать уведомления, когда вкладка в фоне? <button id="ask-notif" class="mini">включить</button></div>` : ''}
+  v.innerHTML = `<div class="feed">${canAsk ? `<div class="notice">Показывать уведомления, когда вкладка в фоне? <button id="ask-notif" class="mini">Включить</button></div>` : ''}
     ${d.notifications.length ? d.notifications.map((n) => `<div class="note ${n.is_read ? '' : 'new'}" data-n="${n.id}">${avatar(n.username, 40)}
       <div class="grow"><div><a href="#" data-user="${esc(n.username)}"><b>${esc(n.username)}</b></a> ${notifText(n)}</div>${n.snippet ? `<div class="muted snip">${esc(n.snippet)}</div>` : ''}<div class="muted small">${timeAgo(n.created_at)}</div></div></div>`).join('')
-      : '<div class="empty"><b>пока ничего нового</b>здесь появятся лайки, ответы, подписки и упоминания</div>'}</div>`;
+      : '<div class="empty"><b>Пока ничего нового</b>Здесь появятся лайки, ответы, подписки и упоминания</div>'}</div>`;
   $('#ask-notif')?.addEventListener('click', async () => { await Notification.requestPermission(); openNotifications(true); });
   v.onclick = (e) => {
     if (e.target.closest('[data-user]')) return;
@@ -92,23 +92,23 @@ async function openSearch(q) {
   S.view = { type: 'feed', page: 'search' };
   feedLayout(); renderRail(); feedSide();
   $('#app').classList.remove('show-side');
-  $('#main-head').innerHTML = `${burger()}<span>поиск</span>`;
+  $('#main-head').innerHTML = `${burger()}<span>Поиск</span>`;
   $('#main-head').onclick = burgerClick;
   const v = $('#view');
   v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
-  v.innerHTML = `<div class="feed"><div class="search-box">${ic('search')}<input id="sq" placeholder="люди, посты, серверы или #тег" value="${esc(q || '')}" autocomplete="off"></div><div id="sres"></div></div>`;
+  v.innerHTML = `<div class="feed"><div class="search-box">${ic('search')}<input id="sq" placeholder="Люди, посты, серверы или #тег" value="${esc(q || '')}" autocomplete="off"></div><div id="sres"></div></div>`;
   const inp = $('#sq');
   let timer;
   const run = async () => {
     const val = inp.value.trim();
-    if (!val) { $('#sres').innerHTML = '<div class="empty"><b>что ищем?</b>ник, слово из поста, название сервера или #тег</div>'; return; }
+    if (!val) { $('#sres').innerHTML = '<div class="empty"><b>Что ищем?</b>Ник, слово из поста, название сервера или #тег</div>'; return; }
     const d = await api('/search?q=' + encodeURIComponent(val));
     if (S.view.page !== 'search' || inp.value.trim() !== val) return;
     $('#sres').innerHTML =
-      (d.users.length ? `<div class="cat pad">люди</div>${d.users.map((u) => `<div class="row" data-user="${esc(u.username)}">${avatar(u.username, 40)}<div class="grow"><b>${esc(u.username)}</b>${u.bio ? `<div class="muted small">${esc(u.bio)}</div>` : ''}</div></div>`).join('')}` : '') +
-      (d.servers.length ? `<div class="cat pad">публичные серверы</div>${d.servers.map((s) => `<div class="row"><div class="grow"><b>${esc(s.name)}</b><div class="muted small">${plural(s.members, 'участник', 'участника', 'участников')}${s.description ? ' · ' + esc(s.description) : ''}</div></div><button data-join="${s.id}">войти</button></div>`).join('')}` : '') +
-      (d.posts.length ? `<div class="cat pad">${d.tag ? '#' + esc(d.tag) : 'посты'}</div><div id="posts">${d.posts.map((p) => postHtml(p)).join('')}</div>` : '') +
-      (!d.users.length && !d.servers.length && !d.posts.length ? '<div class="empty"><b>ничего не нашлось</b>попробуй другое слово</div>' : '');
+      (d.users.length ? `<div class="cat pad">Люди</div>${d.users.map((u) => `<div class="row" data-user="${esc(u.username)}">${avatar(u.username, 40)}<div class="grow"><b>${esc(u.username)}</b>${u.bio ? `<div class="muted small">${esc(u.bio)}</div>` : ''}</div></div>`).join('')}` : '') +
+      (d.servers.length ? `<div class="cat pad">Публичные серверы</div>${d.servers.map((s) => `<div class="row"><div class="grow"><b>${esc(s.name)}</b><div class="muted small">${plural(s.members, 'участник', 'участника', 'участников')}${s.description ? ' · ' + esc(s.description) : ''}</div></div><button data-join="${s.id}">Войти</button></div>`).join('')}` : '') +
+      (d.posts.length ? `<div class="cat pad">${d.tag ? '#' + esc(d.tag) : 'Посты'}</div><div id="posts">${d.posts.map((p) => postHtml(p)).join('')}</div>` : '') +
+      (!d.users.length && !d.servers.length && !d.posts.length ? '<div class="empty"><b>Ничего не нашлось</b>Попробуй другое слово</div>' : '');
   };
   inp.oninput = () => { clearTimeout(timer); timer = setTimeout(run, 250); };
   bindPostEvents(v, () => run());
@@ -124,13 +124,13 @@ async function openSearch(q) {
 
 // ---- каталог серверов
 async function discoverModal() {
-  modal(`<h3>каталог серверов</h3><div class="share-list" id="dl"><div class="muted">загрузка…</div></div>
-    <div class="modal-actions"><button id="m-ok">закрыть</button></div>`, async (c) => {
+  modal(`<h3>Каталог серверов</h3><div class="share-list" id="dl"><div class="muted">Загрузка…</div></div>
+    <div class="modal-actions"><button id="m-ok">Закрыть</button></div>`, async (c) => {
     c.querySelector('#m-ok').onclick = closeModal;
     const d = await api('/discover');
     const list = c.querySelector('#dl');
     list.innerHTML = d.servers.length ? d.servers.map((s) => `<div class="row"><div class="grow"><b>${esc(s.name)}</b><div class="muted small">${plural(s.members, 'участник', 'участника', 'участников')}${s.description ? ' · ' + esc(s.description) : ''}</div></div>
-      ${s.joined ? '<span class="muted small">вы тут</span>' : `<button data-join="${s.id}">войти</button>`}</div>`).join('') : '<div class="muted">пока нет публичных серверов. сделай свой публичным в настройках сервера.</div>';
+      ${s.joined ? '<span class="muted small">Вы тут</span>' : `<button data-join="${s.id}">Войти</button>`}</div>`).join('') : '<div class="muted">Пока нет публичных серверов. сделай свой публичным в настройках сервера.</div>';
     list.onclick = async (e) => {
       const j = e.target.closest('[data-join]');
       if (!j) return;
@@ -141,14 +141,14 @@ async function discoverModal() {
 }
 // ---- жалобы и модерация
 function reportModal(type, id) {
-  modal(`<h3>пожаловаться</h3><div class="muted small">модератор посмотрит жалобу. бан — только за серьёзные нарушения.</div>
-    <select id="r-pre"><option>спам или реклама</option><option>оскорбления или травля</option><option>опасный контент</option><option>другое</option></select>
-    <textarea id="r-text" rows="2" maxlength="250" placeholder="подробности (необязательно)"></textarea>
-    <div class="error" id="m-err"></div><div class="modal-actions"><button class="ghost" id="m-cancel">отмена</button><button id="m-ok">отправить</button></div>`, (c) => {
+  modal(`<h3>Пожаловаться</h3><div class="muted small">Модератор посмотрит жалобу. бан — только за серьёзные нарушения.</div>
+    <select id="r-pre"><option>Спам или реклама</option><option>Оскорбления или травля</option><option>Опасный контент</option><option>Другое</option></select>
+    <textarea id="r-text" rows="2" maxlength="250" placeholder="Подробности (необязательно)"></textarea>
+    <div class="error" id="m-err"></div><div class="modal-actions"><button class="ghost" id="m-cancel">Отмена</button><button id="m-ok">Отправить</button></div>`, (c) => {
     c.querySelector('#m-cancel').onclick = closeModal;
     c.querySelector('#m-ok').onclick = async () => {
       const reason = c.querySelector('#r-pre').value + (c.querySelector('#r-text').value.trim() ? ': ' + c.querySelector('#r-text').value.trim() : '');
-      try { await api('/reports', { body: { target_type: type, target_id: id, reason } }); closeModal(); toast('жалоба отправлена'); }
+      try { await api('/reports', { body: { target_type: type, target_id: id, reason } }); closeModal(); toast('Жалоба отправлена'); }
       catch (er) { c.querySelector('#m-err').textContent = er.message; }
     };
   });
@@ -157,19 +157,19 @@ async function openAdmin() {
   closeWs(); S.channel = null;
   S.view = { type: 'feed', page: 'admin' };
   feedLayout(); renderRail(); feedSide();
-  $('#main-head').innerHTML = `${burger()}<span>жалобы</span>`;
+  $('#main-head').innerHTML = `${burger()}<span>Жалобы</span>`;
   $('#main-head').onclick = burgerClick;
   const v = $('#view');
   const d = await api('/admin/reports');
   v.innerHTML = `<div class="feed">${d.reports.length ? d.reports.map((r) => `<div class="note" data-r="${r.id}"><div class="grow">
-    <div><b>${r.target_type === 'post' ? 'пост' : r.target_type === 'message' ? 'сообщение' : 'пользователь'} #${r.target_id}</b> · от ${esc(r.reporter)} · <span class="muted">${timeAgo(r.created_at)}</span></div>
+    <div><b>${r.target_type === 'post' ? 'Пост' : r.target_type === 'message' ? 'Сообщение' : 'Пользователь'} #${r.target_id}</b> · от ${esc(r.reporter)} · <span class="muted">${timeAgo(r.created_at)}</span></div>
     <div class="snip">${esc(r.snippet || '(уже удалено)')}</div><div class="muted small">${esc(r.reason)}</div>
-    <div class="admin-btns"><button class="ghost mini" data-a="dismiss">отклонить</button>${r.target_type !== 'user' ? '<button class="ghost mini" data-a="delete">удалить контент</button>' : ''}<button class="danger mini" data-a="ban">удалить и забанить автора</button></div></div></div>`).join('')
-    : '<div class="empty"><b>жалоб нет</b>всё спокойно</div>'}</div>`;
+    <div class="admin-btns"><button class="ghost mini" data-a="dismiss">Отклонить</button>${r.target_type !== 'user' ? '<button class="ghost mini" data-a="delete">Удалить контент</button>' : ''}<button class="danger mini" data-a="ban">Удалить и забанить автора</button></div></div></div>`).join('')
+    : '<div class="empty"><b>Жалоб нет</b>Всё спокойно</div>'}</div>`;
   v.onclick = async (e) => {
     const b = e.target.closest('[data-a]');
     if (!b) return;
-    if (b.dataset.a === 'ban' && !confirm('забанить автора? он не сможет войти.')) return;
+    if (b.dataset.a === 'ban' && !confirm('Забанить автора? он не сможет войти.')) return;
     await api(`/admin/reports/${b.closest('[data-r]').dataset.r}`, { body: { action: b.dataset.a } });
     openAdmin();
   };
@@ -184,7 +184,7 @@ function applyTheme() {
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', light ? '#f4f4f4' : '#000000');
 }
 $('#theme').innerHTML = ic('settings');
-$('#theme').title = 'настройки';
+$('#theme').title = 'Настройки';
 $('#theme').onclick = () => settingsModal();
 applyTheme();
 
@@ -199,24 +199,24 @@ function paletteOpen() {
   if ($('#palette')) return;
   const el = document.createElement('div');
   el.id = 'palette'; el.className = 'palette';
-  el.innerHTML = `<div class="pal-card"><div class="search-box">${ic('search')}<input id="pal-in" placeholder="найти человека, сервер или команду" autocomplete="off"></div><div class="pal-list" id="pal-list"></div></div>`;
+  el.innerHTML = `<div class="pal-card"><div class="search-box">${ic('search')}<input id="pal-in" placeholder="Найти человека, сервер или команду" autocomplete="off"></div><div class="pal-list" id="pal-list"></div></div>`;
   document.body.appendChild(el);
   const inp = el.querySelector('#pal-in'), list = el.querySelector('#pal-list');
   let sel = 0, items = [], timer, people = [];
   const cmds = [
-    ['лента', 'globe', () => openFeed()], ['моя страница', 'chat', () => openProfile(S.user.username)],
-    ['личные сообщения', 'chat', () => openHome()], ['уведомления', 'bell', () => openNotifications()],
-    ['каталог серверов', 'compass', () => discoverModal()], ['настройки', 'settings', () => settingsModal()],
-    ['горячие клавиши', 'smile', () => helpModal()],
+    ['Лента', 'globe', () => openFeed()], ['Моя страница', 'chat', () => openProfile(S.user.username)],
+    ['Личные сообщения', 'chat', () => openHome()], ['Уведомления', 'bell', () => openNotifications()],
+    ['Каталог серверов', 'compass', () => discoverModal()], ['Настройки', 'settings', () => settingsModal()],
+    ['Горячие клавиши', 'smile', () => helpModal()],
   ];
   const close = () => { el.remove(); };
   const build = () => {
     const q = inp.value.trim().toLowerCase();
     items = [];
-    cmds.filter((c) => !q || c[0].includes(q)).forEach((c) => items.push({ label: c[0], icon: c[1], run: c[2], kind: 'команда' }));
-    S.servers.filter((s) => !q || s.name.toLowerCase().includes(q)).forEach((s) => items.push({ label: s.name, icon: 'hash', run: () => openServer(s.id), kind: 'сервер' }));
-    people.forEach((u) => items.push({ label: u.username, avatar: u.username, run: () => openProfile(u.username), kind: 'человек' }));
-    if (q) items.push({ label: `искать «${inp.value.trim()}» везде`, icon: 'search', run: () => openSearch(inp.value.trim()), kind: '' });
+    cmds.filter((c) => !q || c[0].includes(q)).forEach((c) => items.push({ label: c[0], icon: c[1], run: c[2], kind: 'Команда' }));
+    S.servers.filter((s) => !q || s.name.toLowerCase().includes(q)).forEach((s) => items.push({ label: s.name, icon: 'hash', run: () => openServer(s.id), kind: 'Сервер' }));
+    people.forEach((u) => items.push({ label: u.username, avatar: u.username, run: () => openProfile(u.username), kind: 'Человек' }));
+    if (q) items.push({ label: `Искать «${inp.value.trim()}» везде`, icon: 'search', run: () => openSearch(inp.value.trim()), kind: '' });
     sel = Math.min(sel, Math.max(0, items.length - 1));
     list.innerHTML = items.map((it, i) => `<div class="pal-item ${i === sel ? 'on' : ''}" data-i="${i}">${it.avatar ? avatar(it.avatar, 24) : ic(it.icon)}<span class="grow">${esc(it.label)}</span><span class="muted small">${it.kind}</span></div>`).join('');
     list.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
@@ -250,8 +250,8 @@ document.addEventListener('click', (e) => {
   else if (u) openProfile(u.dataset.user); else openSearch('#' + t.dataset.tag);
 });
 function helpModal() {
-  const rows = [['Ctrl/⌘ + K', 'быстрый переход и поиск'], ['Alt + ↑ / ↓', 'предыдущий / следующий канал'], ['Esc', 'закрыть окно'], ['Enter', 'отправить сообщение'], ['Shift + Enter', 'новая строка'], ['Ctrl + Enter', 'опубликовать пост'], ['?', 'эта подсказка']];
-  modal(`<h3>горячие клавиши</h3>${rows.map(([k, n]) => `<div class="row"><kbd>${k}</kbd><span class="grow">${n}</span></div>`).join('')}<div class="modal-actions"><button id="m-ok">понятно</button></div>`, (c) => { c.querySelector('#m-ok').onclick = closeModal; });
+  const rows = [['Ctrl/⌘ + K', 'Быстрый переход и поиск'], ['Alt + ↑ / ↓', 'Предыдущий / следующий канал'], ['Esc', 'Закрыть окно'], ['Enter', 'Отправить сообщение'], ['Shift + Enter', 'Новая строка'], ['Ctrl + Enter', 'Опубликовать пост'], ['?', 'Эта подсказка']];
+  modal(`<h3>Горячие клавиши</h3>${rows.map(([k, n]) => `<div class="row"><kbd>${k}</kbd><span class="grow">${n}</span></div>`).join('')}<div class="modal-actions"><button id="m-ok">Понятно</button></div>`, (c) => { c.querySelector('#m-ok').onclick = closeModal; });
 }
 document.addEventListener('keydown', (e) => {
   if (!S.user) return;
@@ -260,6 +260,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if ($('#palette')) return $('#palette').remove();
     if ($('#ucard')) return $('#ucard').remove();
+    if ($('.hpop')) return closePops();
+    if ($('#thread-panel')) return closeThreadPanel();
     if ($('#story-view')) return closeStory();
     if (!$('#modal').classList.contains('hidden')) return closeModal();
     if ($('#sx')) return closeShell();
@@ -310,11 +312,11 @@ function renderBnav() {
   const dm = Object.values(S.dmUnread || {}).reduce((x, y) => x + y, 0);
   const p = S.view.page, t = S.view.type;
   const items = [
-    ['feed', 'globe', 'лента', t === 'feed' && ['all', 'following', 'clips', 'server'].includes(p), ''],
-    ['home', 'chat', 'чаты', t === 'home' || t === 'server', badge(dm + Object.values(S.srvUnread || {}).reduce((x, y) => x + y, 0), true)],
-    ['search', 'search', 'поиск', false, ''],
-    ['notif', 'bell', 'события', p === 'notif', S.important ? badge(S.important, true) : S.notif ? '<span class="badge dot"></span>' : ''],
-    ['me', 'friends', 'я', p === 'me', ''],
+    ['feed', 'globe', 'Лента', t === 'feed' && ['all', 'following', 'clips', 'server'].includes(p), ''],
+    ['home', 'chat', 'Чаты', t === 'home' || t === 'server', badge(dm + Object.values(S.srvUnread || {}).reduce((x, y) => x + y, 0), true)],
+    ['search', 'search', 'Поиск', false, ''],
+    ['notif', 'bell', 'События', p === 'notif', S.important ? badge(S.important, true) : S.notif ? '<span class="badge dot"></span>' : ''],
+    ['me', 'friends', 'Я', p === 'me', ''],
   ];
   b.innerHTML = items.map(([k, i, n, on, bd]) => `<button class="${on ? 'on' : ''}" data-b="${k}">${ic(i)}<span>${n}</span>${bd}</button>`).join('');
   b.onclick = (ev) => {

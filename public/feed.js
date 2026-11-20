@@ -4,7 +4,7 @@ function setLayout(withRight) { $('#app').classList.toggle('no-members', !withRi
 
 function timeAgo(t) {
   const d = (Date.now() - t) / 1000;
-  if (d < 45) return 'только что';
+  if (d < 45) return 'Только что';
   if (d < 3600) return Math.round(d / 60) + ' мин';
   if (d < 86400) return Math.round(d / 3600) + ' ч';
   if (d < 7 * 86400) return Math.round(d / 86400) + ' д';
@@ -28,7 +28,7 @@ function pollHtml(p) {
   }).join('')}<div class="muted small">${plural(q.total, 'голос', 'голоса', 'голосов')}</div></div>`;
 }
 function quoteHtml(q) {
-  if (q.deleted) return '<div class="quote-embed muted">пост удалён</div>';
+  if (q.deleted) return '<div class="quote-embed muted">Пост удалён</div>';
   return `<div class="quote-embed" data-open="${q.id}">${avatar(q.username, 20)}<b>${esc(q.username)}</b> <span class="muted">${timeAgo(q.created_at)}</span>
     <div class="post-text">${linkify(q.content, true)}</div>${mediaHtml(q)}</div>`;
 }
@@ -39,7 +39,7 @@ function postHtml(p, opts = {}) {
   if (!p.content && p.quote && !p.att_key) {
     // чистый репост
     return `<article class="post repost" data-post="${p.id}" data-open="${p.quote_id}" ${open}>
-      <div class="repost-head">${ic('repost')} <a href="#" data-user="${esc(p.username)}">${esc(p.username)}</a> репостнул${mine ? ' · <a href="#" data-act="del">убрать</a>' : ''}</div>
+      <div class="repost-head">${ic('repost')} <a href="#" data-user="${esc(p.username)}">${esc(p.username)}</a> репостнул${mine ? ' · <a href="#" data-act="del">Убрать</a>' : ''}</div>
       ${quoteHtml(p.quote)}</article>`;
   }
   return `<article class="post ${opts.reply ? 'reply' : ''}" data-post="${p.id}" ${open}>
@@ -48,13 +48,13 @@ function postHtml(p, opts = {}) {
       ${p.pinned ? `<div class="muted small pin-line">${ic('pin')} закреплено</div>` : ''}
       <div class="post-head"><a class="post-name" href="#" data-user="${esc(p.username)}">${esc(p.username)}</a>
         ${p.server_name ? `<span class="chip">${esc(p.server_name)}</span>` : ''}<span class="muted">${timeAgo(p.created_at)}</span>
-        <button class="icon-btn post-more" data-act="more" aria-label="ещё">${ic('more')}</button></div>
+        <button class="icon-btn post-more" data-act="more" aria-label="Ещё">${ic('more')}</button></div>
       ${p.content ? `<div class="post-text">${linkify(p.content, true)}</div>` : ''}
       ${mediaHtml(p)}${pollHtml(p)}${p.quote ? quoteHtml(p.quote) : ''}
       <div class="post-actions">
-        <button class="act" data-act="open" aria-label="ответы">${ic('comment')}<span>${p.replies || ''}</span></button>
-        <button class="act rp ${p.reposted ? 'on' : ''}" data-act="repost" aria-pressed="${!!p.reposted}" aria-label="репост или цитата" title="репост или цитата">${ic('repost')}<span>${p.reposts || ''}</span></button>
-        <button class="act like ${p.liked ? 'on' : ''}" data-act="like" aria-pressed="${p.liked}" aria-label="нравится">${ic('heart')}<span>${p.likes || ''}</span></button>
+        <button class="act" data-act="open" aria-label="Ответы">${ic('comment')}<span>${p.replies || ''}</span></button>
+        <button class="act rp ${p.reposted ? 'on' : ''}" data-act="repost" aria-pressed="${!!p.reposted}" aria-label="Репост или цитата" title="Репост или цитата">${ic('repost')}<span>${p.reposts || ''}</span></button>
+        <button class="act like ${p.liked ? 'on' : ''}" data-act="like" aria-pressed="${p.liked}" aria-label="Нравится">${ic('heart')}<span>${p.likes || ''}</span></button>
       </div>
     </div></article>`;
 }
@@ -66,9 +66,9 @@ function composerHtml(placeholder, btn, o = {}) {
     <div class="pc-body"><textarea id="pc-text" rows="1" maxlength="1000" placeholder="${placeholder}"></textarea>
     <div id="pc-extra"></div>
     <div class="pc-foot"><div class="pc-tools">
-      ${o.attach === false ? '' : `<button type="button" class="icon-btn" id="pc-img" title="${S.config.files ? 'фото или видео' : 'файлы пока отключены'}" aria-label="фото или видео" ${S.config.files ? '' : 'disabled'}>${ic('image')}</button>`}
-      ${o.poll ? `<button type="button" class="icon-btn" id="pc-poll" title="опрос" aria-label="опрос">${ic('poll')}</button>` : ''}
-      ${o.poll && mine.length ? `<select id="pc-srv" class="mini-select" title="публиковать от имени"><option value="">от моего имени</option>${mine.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select>` : ''}
+      ${o.attach === false ? '' : `<button type="button" class="icon-btn" id="pc-img" title="${S.config.files ? 'Фото или видео' : 'Файлы пока отключены'}" aria-label="Фото или видео" ${S.config.files ? '' : 'disabled'}>${ic('image')}</button>`}
+      ${o.poll ? `<button type="button" class="icon-btn" id="pc-poll" title="Опрос" aria-label="Опрос">${ic('poll')}</button>` : ''}
+      ${o.poll && mine.length ? `<select id="pc-srv" class="mini-select" title="Публиковать от имени"><option value="">От моего имени</option>${mine.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select>` : ''}
     </div><span class="muted" id="pc-count"></span><button type="submit" id="pc-send" disabled>${btn}</button></div>
     <input type="file" id="pc-file" class="hidden" accept="image/*,video/*"></div></form>`;
 }
@@ -81,8 +81,8 @@ function bindComposer(onSubmit) {
   const pollValues = () => [...document.querySelectorAll('.poll-in')].map((i) => i.value.trim()).filter(Boolean);
   const drawExtra = () => {
     $('#pc-extra').innerHTML =
-      (st.att ? `<div class="pending-file"><span>${esc(st.att.att_name)}</span><a href="#" id="att-x">убрать</a></div>` : '') +
-      (st.poll ? `<div class="poll-edit">${[1, 2, 3, 4].map((n) => `<input class="poll-in" maxlength="60" placeholder="вариант ${n}${n > 2 ? ' (необязательно)' : ''}">`).join('')}</div>` : '');
+      (st.att ? `<div class="pending-file"><span>${esc(st.att.att_name)}</span><a href="#" id="att-x">Убрать</a></div>` : '') +
+      (st.poll ? `<div class="poll-edit">${[1, 2, 3, 4].map((n) => `<input class="poll-in" maxlength="60" placeholder="Вариант ${n}${n > 2 ? ' (необязательно)' : ''}">`).join('')}</div>` : '');
     $('#att-x')?.addEventListener('click', (e) => { e.preventDefault(); st.att = null; drawExtra(); sync(); });
     document.querySelectorAll('.poll-in').forEach((i) => (i.oninput = sync));
   };
@@ -96,7 +96,7 @@ function bindComposer(onSubmit) {
   $('#pc-file').onchange = async (e) => {
     const f = e.target.files[0];
     if (!f) return;
-    $('#pc-extra').insertAdjacentHTML('afterbegin', `<div class="pending-file" id="up">загрузка…</div>`);
+    $('#pc-extra').insertAdjacentHTML('afterbegin', `<div class="pending-file" id="up">Загрузка…</div>`);
     try { st.att = await uploadFile(f); } catch (er) { toast(er.message); }
     e.target.value = ''; drawExtra(); sync();
   };
@@ -120,10 +120,10 @@ function bindComposer(onSubmit) {
 function feedSide() {
   const pg = S.view.type === 'feed' ? S.view.page : '';
   $('#side-head').innerHTML = LOGO;
-  if (!S._logoShown) { S._logoShown = true; mosaicResolve($('#side-head')); }
-  const items = [['feed', 'лента', 'globe', ['all', 'following', 'clips'].includes(pg)], ['search', 'поиск', 'search', pg === 'search'], ['me', 'моя страница', 'chat', pg === 'me']];
-  if (S.user.is_admin) items.push(['admin', 'жалобы', 'shield', pg === 'admin']);
-  items.push(['settings', 'настройки', 'settings', false]);
+ 
+  const items = [['feed', 'Лента', 'globe', ['all', 'following', 'clips'].includes(pg)], ['search', 'Поиск', 'search', pg === 'search'], ['me', 'Моя страница', 'chat', pg === 'me']];
+  if (S.user.is_admin) items.push(['admin', 'Жалобы', 'shield', pg === 'admin']);
+  items.push(['settings', 'Настройки', 'settings', false]);
   $('#side-list').innerHTML = items.map(([k, n, i, on]) => `<div class="item ${on ? 'on' : ''}" data-feed="${k}" tabindex="0">${ic(i)} <span class="grow">${n}</span></div>`).join('');
   $('#side-list').onclick = (e) => {
     const t = e.target.closest('[data-feed]');
@@ -144,16 +144,16 @@ async function renderRightRail() {
   if (!box) return;
   const [sg, tr] = await Promise.all([api('/suggestions').catch(() => ({ users: [] })), api('/trending').catch(() => ({ tags: [] }))]);
   if (S.view.type !== 'feed') return;
-  box.innerHTML = `<div class="cat">в тренде</div>` +
-    (tr.tags.length ? tr.tags.map((t) => `<div class="item trend" data-tag="${esc(t.tag)}"><b>#${esc(t.tag)}</b><span class="muted small">${plural(t.n, 'пост', 'поста', 'постов')}</span></div>`).join('') : '<div class="muted small pad">пока тихо — напиши пост с #тегом</div>') +
-    `<div class="cat">кого читать</div>` +
-    (sg.users.length ? sg.users.map((u) => `<div class="item sug" data-user="${esc(u.username)}">${avatar(u.username, 32)}<span class="grow"><b>${esc(u.username)}</b></span><button class="mini" data-follow="${u.id}">читать</button></div>`).join('') : '<div class="muted small pad">пока некого рекомендовать</div>');
+  box.innerHTML = `<div class="cat">В тренде</div>` +
+    (tr.tags.length ? tr.tags.map((t) => `<div class="item trend" data-tag="${esc(t.tag)}"><b>#${esc(t.tag)}</b><span class="muted small">${plural(t.n, 'пост', 'поста', 'постов')}</span></div>`).join('') : '<div class="muted small pad">Пока тихо — напиши пост с #тегом</div>') +
+    `<div class="cat">Кого читать</div>` +
+    (sg.users.length ? sg.users.map((u) => `<div class="item sug" data-user="${esc(u.username)}">${avatar(u.username, 32)}<span class="grow"><b>${esc(u.username)}</b></span><button class="mini" data-follow="${u.id}">Читать</button></div>`).join('') : '<div class="muted small pad">Пока некого рекомендовать</div>');
   box.onclick = async (e) => {
     const f = e.target.closest('[data-follow]');
     if (!f) return;
     e.stopPropagation();
     const r = await api(`/users/${f.dataset.follow}/follow`, { method: 'POST' });
-    f.textContent = r.following ? 'вы читаете' : 'читать';
+    f.textContent = r.following ? 'Вы читаете' : 'Читать';
     f.classList.toggle('ghost', r.following);
   };
 }
@@ -179,10 +179,10 @@ async function renderStories() {
   S.storyGroups = groups;
   const sn = seen();
   const mineG = groups.find((g) => g.uid === S.user.id);
-  box.innerHTML = `<button class="story add" data-story-add title="добавить историю"><span class="ring">${avatar(S.user.username, 52)}<i class="plus">${ic('plus')}</i></span><span>ваша</span></button>` +
+  box.innerHTML = `<button class="story add" data-story-add title="Добавить историю"><span class="ring">${avatar(S.user.username, 52)}<i class="plus">${ic('plus')}</i></span><span>Ваша</span></button>` +
     groups.map((g, i) => {
       const unseen = g.items.some((x) => !sn.has(x.id));
-      return `<button class="story" data-story="${i}"><span class="ring ${unseen ? 'new' : ''}">${avatar(g.username, 52)}</span><span>${g.uid === S.user.id ? 'мои' : esc(g.username)}</span></button>`;
+      return `<button class="story" data-story="${i}"><span class="ring ${unseen ? 'new' : ''}">${avatar(g.username, 52)}</span><span>${g.uid === S.user.id ? 'Мои' : esc(g.username)}</span></button>`;
     }).join('');
   box.onclick = (e) => {
     if (e.target.closest('[data-story-add]')) return storyModal();
@@ -191,19 +191,19 @@ async function renderStories() {
   };
 }
 function storyModal() {
-  modal(`<h3>новая история</h3><div class="muted small">исчезнет через 24 часа</div>
-    <textarea id="st-text" rows="3" maxlength="300" placeholder="что происходит?"></textarea>
+  modal(`<h3>Новая история</h3><div class="muted small">Исчезнет через 24 часа</div>
+    <textarea id="st-text" rows="3" maxlength="300" placeholder="Что происходит?"></textarea>
     <div id="st-att" class="muted small"></div>
-    <select id="st-vis"><option value="all">видят все, кто на меня подписан</option><option value="close">только близкие друзья</option></select>
+    <select id="st-vis"><option value="all">Видят все, кто на меня подписан</option><option value="close">Только близкие друзья</option></select>
     <div class="error" id="m-err"></div>
-    <div class="modal-actions">${S.config.files ? `<button class="ghost" id="st-file">${ic('image')} фото/видео</button>` : ''}<button class="ghost" id="m-cancel">отмена</button><button id="m-ok">опубликовать</button></div>
+    <div class="modal-actions">${S.config.files ? `<button class="ghost" id="st-file">${ic('image')} фото/видео</button>` : ''}<button class="ghost" id="m-cancel">Отмена</button><button id="m-ok">Опубликовать</button></div>
     <input type="file" id="st-in" class="hidden" accept="image/*,video/*">`, (c) => {
     let att = null;
     c.querySelector('#m-cancel').onclick = closeModal;
     c.querySelector('#st-file')?.addEventListener('click', () => c.querySelector('#st-in').click());
     c.querySelector('#st-in').onchange = async (e) => {
       const f = e.target.files[0]; if (!f) return;
-      c.querySelector('#st-att').textContent = 'загрузка…';
+      c.querySelector('#st-att').textContent = 'Загрузка…';
       try { att = await uploadFile(f); c.querySelector('#st-att').textContent = att.att_name; } catch (er) { c.querySelector('#m-err').textContent = er.message; }
     };
     c.querySelector('#m-ok').onclick = async () => {
@@ -225,7 +225,7 @@ function openStory(gi, ii = 0) {
   const media = s.att_key && S.config.files ? ((s.att_type || '').startsWith('video/') ? `<video src="${fileUrl(s.att_key)}" autoplay playsinline muted loop></video>` : `<img src="${fileUrl(s.att_key)}" alt="">`) : '';
   el.innerHTML = `<div class="story-card"><div class="story-bars">${g.items.map((_, k) => `<i class="${k < ii ? 'done' : k === ii ? 'cur' : ''}"></i>`).join('')}</div>
     <div class="story-top">${avatar(g.username, 32)}<b>${esc(g.username)}</b><span class="muted">${timeAgo(s.created_at)}</span>${s.visibility === 'close' ? `<span class="chip">${ic('star')} близкие</span>` : ''}
-      ${g.uid === S.user.id ? `<button class="icon-btn" id="sv-del" aria-label="удалить">${ic('trash')}</button>` : ''}<button class="icon-btn" id="sv-x" aria-label="закрыть">${ic('close')}</button></div>
+      ${g.uid === S.user.id ? `<button class="icon-btn" id="sv-del" aria-label="Удалить">${ic('trash')}</button>` : ''}<button class="icon-btn" id="sv-x" aria-label="Закрыть">${ic('close')}</button></div>
     ${media}${s.content ? `<div class="story-text ${media ? 'over' : ''}">${linkify(s.content)}</div>` : ''}
     <div class="story-nav"><span data-nav="-1"></span><span data-nav="1"></span></div></div>`;
   const next = (d) => {
@@ -256,14 +256,14 @@ async function openFeed(tab) {
   feedLayout();
   renderRail(); feedSide();
   $('#app').classList.remove('show-side');
-  $('#main-head').innerHTML = `${burger()}<div class="tabs">${[['all', 'для вас'], ['following', 'подписки'], ['clips', 'клипы']].map(([k, n]) => `<button class="${S.feedTab === k ? 'on' : ''}" data-ftab="${k}">${n}</button>`).join('')}</div>`;
+  $('#main-head').innerHTML = `${burger()}<div class="tabs">${[['all', 'Для вас'], ['following', 'Подписки'], ['clips', 'Клипы']].map(([k, n]) => `<button class="${S.feedTab === k ? 'on' : ''}" data-ftab="${k}">${n}</button>`).join('')}</div>`;
   $('#main-head').onclick = (e) => { const t = e.target.closest('[data-ftab]'); if (t) openFeed(t.dataset.ftab); else burgerClick(e); };
   const v = $('#view');
   v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
   const clips = S.feedTab === 'clips';
-  v.innerHTML = `<div class="feed" id="feed">${clips ? '' : '<div class="stories" id="stories"></div>' + composerHtml('что нового?', 'опубликовать', { poll: true })}
-    ${clips ? '<div class="empty small-empty"><span class="muted">клипы — последние секунды демонстрации экрана из голосовых каналов</span></div>' : ''}
-    <div id="posts"><div class="empty">загрузка…</div></div></div>`;
+  v.innerHTML = `<div class="feed" id="feed">${clips ? '' : '<div class="stories" id="stories"></div>' + composerHtml('Что нового?', 'Опубликовать', { poll: true })}
+    ${clips ? '<div class="empty small-empty"><span class="muted">Клипы — последние секунды демонстрации экрана из голосовых каналов</span></div>' : ''}
+    <div id="posts"><div class="empty">Загрузка…</div></div></div>`;
   if (!clips) {
     bindComposer(async (content, extra) => {
       const d = await api('/posts', { body: { content, ...extra } });
@@ -282,12 +282,12 @@ async function loadPosts(path, box, kind, first = true) {
   if ((S.view.type !== 'feed' && kind !== 'server') || !box.isConnected) return;
   const html = posts.map((p) => postHtml(p)).join('');
   if (first) {
-    box.innerHTML = html || `<div class="empty"><b>${kind === 'following' ? 'в подписках пока пусто' : kind === 'clips' ? 'клипов пока нет' : 'здесь пока тихо'}</b>${kind === 'following' ? 'подпишись на людей, зайдя в их профиль' : kind === 'clips' ? 'включи показ экрана в голосовом канале и нажми «клип»' : 'напиши первый пост'}</div>`;
+    box.innerHTML = html || `<div class="empty"><b>${kind === 'following' ? 'В подписках пока пусто' : kind === 'clips' ? 'Клипов пока нет' : 'Здесь пока тихо'}</b>${kind === 'following' ? 'Подпишись на людей, зайдя в их профиль' : kind === 'clips' ? 'Включи показ экрана в голосовом канале и нажми «клип»' : 'Напиши первый пост'}</div>`;
   } else box.insertAdjacentHTML('beforeend', html);
   box.querySelector('.more')?.remove();
   if (posts.length >= 30) {
     const last = posts[posts.length - 1].id;
-    box.insertAdjacentHTML('beforeend', `<button class="ghost more">показать ещё</button>`);
+    box.insertAdjacentHTML('beforeend', `<button class="ghost more">Показать ещё</button>`);
     box.querySelector('.more').onclick = () => loadPosts(path.replace(/&before=\d+/, '') + `&before=${last}`, box, kind, false);
   }
 }
@@ -332,25 +332,25 @@ function bindPostEvents(root, refresh) {
     }
     if (act === 'repost') {
       e.preventDefault();
-      const k = await showPop(btn, [['repost', btn.classList.contains('on') ? 'убрать репост' : 'репост', 'repost'], ['quote', 'цитата', 'quote']]);
+      const k = await showPop(btn, [['repost', btn.classList.contains('on') ? 'Убрать репост' : 'Репост', 'repost'], ['quote', 'Цитата', 'quote']]);
       if (k === 'quote') return quoteModal(id, refresh);
       const r = await api(`/posts/${id}/repost`, { method: 'POST' });
       btn.classList.toggle('on', r.reposted); btn.querySelector('span').textContent = r.reposts || '';
-      toast(r.reposted ? 'репост опубликован' : 'репост убран');
+      toast(r.reposted ? 'Репост опубликован' : 'Репост убран');
       return;
     }
     if (act === 'more') {
       e.preventDefault();
       const post = (S.postCache || {})[id];
       const mine = art.querySelector('.post-name')?.textContent === S.user.username;
-      const items = [['share', 'отправить в чат', 'share'], ['copy', 'скопировать ссылку', 'share']];
-      if (mine && !art.classList.contains('reply')) items.push(['pin', 'закрепить / открепить', 'pin']);
-      if (mine || S.user.is_admin) items.push(['del', 'удалить', 'trash']);
-      if (!mine) items.push(['report', 'пожаловаться', 'flag']);
+      const items = [['share', 'Отправить в чат', 'share'], ['copy', 'Скопировать ссылку', 'share']];
+      if (mine && !art.classList.contains('reply')) items.push(['pin', 'Закрепить / открепить', 'pin']);
+      if (mine || S.user.is_admin) items.push(['del', 'Удалить', 'trash']);
+      if (!mine) items.push(['report', 'Пожаловаться', 'flag']);
       const k = await showPop(btn, items);
       if (k === 'share') return shareModal(id);
-      if (k === 'copy') { navigator.clipboard?.writeText(`${location.origin}/?post=${id}`); toast('ссылка скопирована'); }
-      if (k === 'pin') { const r = await api(`/posts/${id}/pin`, { method: 'POST' }); toast(r.pinned ? 'закреплено в профиле' : 'откреплено'); }
+      if (k === 'copy') { navigator.clipboard?.writeText(`${location.origin}/?post=${id}`); toast('Ссылка скопирована'); }
+      if (k === 'pin') { const r = await api(`/posts/${id}/pin`, { method: 'POST' }); toast(r.pinned ? 'Закреплено в профиле' : 'Откреплено'); }
       if (k === 'report') reportModal('post', id);
       if (k === 'del') await delPost(id, art, root, refresh);
       return;
@@ -363,34 +363,34 @@ function bindPostEvents(root, refresh) {
   root.onkeydown = (e) => { if (e.key === 'Enter' && e.target.classList?.contains('post')) openThread(Number(e.target.dataset.open || e.target.dataset.post)); };
 }
 async function delPost(id, art, root, refresh) {
-  if (!confirm('удалить пост?')) return;
+  if (!confirm('Удалить пост?')) return;
   await api(`/posts/${id}`, { method: 'DELETE' });
   art.classList.add('gone');
   setTimeout(() => { if (art.classList.contains('reply') || root.querySelector('[data-thread]')) refresh(); else art.remove(); }, 250);
 }
 
 function quoteModal(id, refresh) {
-  modal(`<h3>цитата</h3><textarea id="q-text" rows="3" maxlength="1000" placeholder="твой комментарий"></textarea>
-    <div class="error" id="m-err"></div><div class="modal-actions"><button class="ghost" id="m-cancel">отмена</button><button id="m-ok">опубликовать</button></div>`, (c) => {
+  modal(`<h3>Цитата</h3><textarea id="q-text" rows="3" maxlength="1000" placeholder="Твой комментарий"></textarea>
+    <div class="error" id="m-err"></div><div class="modal-actions"><button class="ghost" id="m-cancel">Отмена</button><button id="m-ok">Опубликовать</button></div>`, (c) => {
     c.querySelector('#q-text').focus();
     c.querySelector('#m-cancel').onclick = closeModal;
     c.querySelector('#m-ok').onclick = async () => {
       if (!c.querySelector('#q-text').value.trim()) return;
-      try { await api('/posts', { body: { content: c.querySelector('#q-text').value, quote_id: id } }); closeModal(); toast('опубликовано'); refresh?.(); }
+      try { await api('/posts', { body: { content: c.querySelector('#q-text').value, quote_id: id } }); closeModal(); toast('Опубликовано'); refresh?.(); }
       catch (er) { c.querySelector('#m-err').textContent = er.message; }
     };
   });
 }
 
 async function shareModal(id) {
-  modal(`<h3>отправить в чат</h3><input id="sh-note" placeholder="добавь комментарий (необязательно)"><div class="share-list" id="sh-list"><div class="muted">загрузка…</div></div>
-    <div class="modal-actions"><button class="ghost" id="m-cancel">закрыть</button></div>`, async (c) => {
+  modal(`<h3>Отправить в чат</h3><input id="sh-note" placeholder="Добавь комментарий (необязательно)"><div class="share-list" id="sh-list"><div class="muted">Загрузка…</div></div>
+    <div class="modal-actions"><button class="ghost" id="m-cancel">Закрыть</button></div>`, async (c) => {
     c.querySelector('#m-cancel').onclick = closeModal;
     const details = await Promise.all(S.servers.map((s) => api(`/servers/${s.id}`).catch(() => null)));
     const rows = S.dms.map((d) => ({ id: d.id, label: '@' + d.username })).concat(
       details.filter(Boolean).flatMap((d) => d.channels.filter((x) => x.type === 'text').map((x) => ({ id: x.id, label: `${d.server.name} · #${x.name}` }))));
     const list = c.querySelector('#sh-list');
-    list.innerHTML = rows.length ? rows.map((r) => `<button class="ghost share-row" data-cid="${r.id}">${esc(r.label)}</button>`).join('') : '<div class="muted">нет чатов — создай сервер или начни лс</div>';
+    list.innerHTML = rows.length ? rows.map((r) => `<button class="ghost share-row" data-cid="${r.id}">${esc(r.label)}</button>`).join('') : '<div class="muted">Нет чатов — создай сервер или начни лс</div>';
     list.onclick = async (e) => {
       const b = e.target.closest('[data-cid]');
       if (!b) return;
@@ -406,15 +406,15 @@ async function openThread(id) {
   const prev = S.view;
   S.view = { type: 'feed', page: prev.page || S.feedTab, profile: prev.profile };
   feedLayout(); renderRail(); feedSide();
-  $('#main-head').innerHTML = `<button class="icon-btn" id="back" aria-label="назад">${ic('back')}</button><span>пост</span>`;
+  $('#main-head').innerHTML = `<button class="icon-btn" id="back" aria-label="Назад">${ic('back')}</button><span>Пост</span>`;
   $('#main-head').onclick = null;
   $('#back').onclick = () => (S.view.profile ? openProfile(S.view.profile) : openFeed(S.feedTab));
   v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
-  v.innerHTML = '<div class="feed"><div class="empty">загрузка…</div></div>';
+  v.innerHTML = '<div class="feed"><div class="empty">Загрузка…</div></div>';
   let d;
   try { d = await api(`/posts/${id}`); } catch (e) { v.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
   v.innerHTML = `<div class="feed" data-thread="${id}">${postHtml(d.post, { open: false }).replace('class="post "', 'class="post big"')}
-    ${composerHtml(`ответить ${esc(d.post.username)}`, 'ответить')}
+    ${composerHtml(`Ответить ${esc(d.post.username)}`, 'Ответить')}
     <div id="replies">${d.replies.map((r) => postHtml(r, { reply: true, open: false })).join('')}</div></div>`;
   bindComposer(async (content, extra) => {
     const r = await api('/posts', { body: { content, parent_id: id, ...extra } });
@@ -434,7 +434,7 @@ async function openProfile(username) {
   $('#main-head').onclick = burgerClick;
   const v = $('#view');
   v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
-  v.innerHTML = '<div class="feed"><div class="empty">загрузка…</div></div>';
+  v.innerHTML = '<div class="feed"><div class="empty">Загрузка…</div></div>';
   let d;
   try { d = await api(`/users/${encodeURIComponent(username)}`); } catch (e) { v.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
   const u = d.user;
@@ -442,15 +442,15 @@ async function openProfile(username) {
     <div class="pr-main"><h2>${esc(u.username)}</h2>${u.status ? `<div class="pr-status">${esc(u.status)}</div>` : ''}
       ${u.bio ? `<div class="bio">${linkify(u.bio, true)}</div>` : ''}
       <div class="muted"><span id="pr-followers">${d.followers}</span> подписчиков · ${d.following} подписок${d.online ? ' · в сети' : ''}</div>
-      <div class="muted">с нами с ${new Date(u.created_at).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</div></div>
+      <div class="muted">С нами с ${new Date(u.created_at).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</div></div>
     <div class="pr-btns">${d.is_me ? `<button class="ghost" id="pr-edit">${ic('edit')} изменить</button>` :
-      `<button id="pr-follow" class="${d.is_following ? 'ghost' : ''}">${d.is_following ? 'вы подписаны' : 'подписаться'}</button><button class="ghost" id="pr-dm">написать</button>
-       <button class="ghost ${d.is_close ? 'on' : ''}" id="pr-close" title="близкие друзья видят твои закрытые истории">${ic('star')}</button><button class="icon-btn" id="pr-report" aria-label="пожаловаться">${ic('flag')}</button>`}</div></div>
-    <div id="posts">${d.pinned ? postHtml(d.pinned) : ''}${d.posts.length || d.pinned ? d.posts.map((p) => postHtml(p)).join('') : '<div class="empty"><b>постов пока нет</b></div>'}</div></div>`;
+      `<button id="pr-follow" class="${d.is_following ? 'ghost' : ''}">${d.is_following ? 'Вы подписаны' : 'Подписаться'}</button><button class="ghost" id="pr-dm">Написать</button>
+       <button class="ghost ${d.is_close ? 'on' : ''}" id="pr-close" title="Близкие друзья видят твои закрытые истории">${ic('star')}</button><button class="icon-btn" id="pr-report" aria-label="Пожаловаться">${ic('flag')}</button>`}</div></div>
+    <div id="posts">${d.pinned ? postHtml(d.pinned) : ''}${d.posts.length || d.pinned ? d.posts.map((p) => postHtml(p)).join('') : '<div class="empty"><b>Постов пока нет</b></div>'}</div></div>`;
   bindPostEvents(v, () => openProfile(username));
   $('#pr-follow')?.addEventListener('click', async (e) => {
     const r = await api(`/users/${u.id}/follow`, { method: 'POST' });
-    e.currentTarget.textContent = r.following ? 'вы подписаны' : 'подписаться';
+    e.currentTarget.textContent = r.following ? 'Вы подписаны' : 'Подписаться';
     e.currentTarget.classList.toggle('ghost', r.following);
     $('#pr-followers').textContent = r.followers;
     renderRightRail();
@@ -458,7 +458,7 @@ async function openProfile(username) {
   $('#pr-close')?.addEventListener('click', async (e) => {
     const r = await api(`/close-friends/${u.id}`, { method: 'POST' });
     e.currentTarget.classList.toggle('on', r.is_close);
-    toast(r.is_close ? 'добавлен в близкие друзья' : 'убран из близких друзей');
+    toast(r.is_close ? 'Добавлен в близкие друзья' : 'Убран из близких друзей');
   });
   $('#pr-report')?.addEventListener('click', () => reportModal('user', u.id));
   $('#pr-dm')?.addEventListener('click', async () => {
@@ -475,11 +475,11 @@ async function openServerFeed() {
   const owner = can(PERM.SERVER);
   closeWs(); S.channel = null; S.serverFeed = true;
   setLayout(true); renderServerSide(); renderRail();
-  $('#main-head').innerHTML = `${burger()}<span class="muted">${ic('globe')}</span> <span class="grow">лента · ${esc(server.name)}</span>`;
+  $('#main-head').innerHTML = `${burger()}<span class="muted">${ic('globe')}</span> <span class="grow">Лента · ${esc(server.name)}</span>`;
   $('#main-head').onclick = burgerClick;
   const v = $('#view');
   v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
-  v.innerHTML = `<div class="feed">${owner ? composerHtml(`новость от имени «${esc(server.name)}»`, 'опубликовать', { open: false }) : ''}<div id="posts"><div class="empty">загрузка…</div></div></div>`;
+  v.innerHTML = `<div class="feed">${owner ? composerHtml(`Новость от имени «${esc(server.name)}»`, 'Опубликовать', { open: false }) : ''}<div id="posts"><div class="empty">Загрузка…</div></div></div>`;
   if (owner) bindComposer(async (content, extra) => {
     const d = await api('/posts', { body: { content, ...extra, server_id: server.id } });
     const box = $('#posts'); box.querySelector('.empty')?.remove();
@@ -488,5 +488,5 @@ async function openServerFeed() {
   bindPostEvents(v, () => openServerFeed());
   await loadPosts(`/feed?tab=server&server_id=${server.id}`, $('#posts'), 'server');
   const box = $('#posts');
-  if (box && box.querySelector('.empty b')) box.querySelector('.empty').innerHTML = `<b>здесь пока тихо</b>${owner ? 'опубликуй первую новость сервера' : 'владелец сервера ещё ничего не публиковал'}`;
+  if (box && box.querySelector('.empty b')) box.querySelector('.empty').innerHTML = `<b>Здесь пока тихо</b>${owner ? 'Опубликуй первую новость сервера' : 'Владелец сервера ещё ничего не публиковал'}`;
 }
