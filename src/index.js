@@ -27,7 +27,7 @@ async function authUser(req, env, url) {
   if (!token && url) token = url.searchParams.get('token');
   if (!token) return null;
   return await env.DB.prepare(
-    'SELECT u.id, u.username, u.avatar_key FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND u.banned_at IS NULL'
+    'SELECT u.id, u.username, u.avatar_key, u.bio, u.banner, u.status FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND u.banned_at IS NULL'
   ).bind(token).first();
 }
 
@@ -144,6 +144,26 @@ async function handleApi(req, env, url) {
   if (!me) return err('не авторизован', 401);
 
   if (p === '/me') return json({ user: { ...me, is_admin: isAdmin(env, me) } });
+  if (p === '/account/password' && m === 'POST') {
+    const { old_password, new_password } = await req.json();
+    const u = await env.DB.prepare('SELECT pass_hash, pass_salt FROM users WHERE id=?').bind(me.id).first();
+    if ((await hashPass(old_password || '', u.pass_salt)) !== u.pass_hash) return err('текущий пароль неверный', 403);
+    if (!new_password || new_password.length < 4) return err('новый пароль — минимум 4 символа');
+    const salt = rand(16);
+    await env.DB.prepare('UPDATE users SET pass_hash=?, pass_salt=? WHERE id=?').bind(await hashPass(new_password, salt), salt, me.id).run();
+    const cur = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+    await env.DB.prepare('DELETE FROM sessions WHERE user_id=? AND token != ?').bind(me.id, cur || '').run();
+    return json({ ok: true });
+  }
+  if (p === '/account/username' && m === 'POST') {
+    const { username, password } = await req.json();
+    if (!/^[\p{L}\p{N}_.-]{2,24}$/u.test(username || '')) return err('ник: 2–24 символа, буквы/цифры/_ . -');
+    const u = await env.DB.prepare('SELECT pass_hash, pass_salt FROM users WHERE id=?').bind(me.id).first();
+    if ((await hashPass(password || '', u.pass_salt)) !== u.pass_hash) return err('пароль неверный', 403);
+    try { await env.DB.prepare('UPDATE users SET username=? WHERE id=?').bind(username, me.id).run(); }
+    catch { return err('этот ник уже занят', 409); }
+    return json({ ok: true, username });
+  }
   if (p === '/logout' && m === 'POST') {
     const t = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
     await env.DB.prepare('DELETE FROM sessions WHERE token=?').bind(t).run();
@@ -187,10 +207,17 @@ async function handleApi(req, env, url) {
     const s = await env.DB.prepare('SELECT id, name, owner_id, invite, is_public, description FROM servers WHERE id=?').bind(sid).first();
     if (m === 'GET') {
       const [chs, mems] = await Promise.all([
-        env.DB.prepare('SELECT id, name, type FROM channels WHERE server_id=? ORDER BY id').bind(sid).all(),
+        env.DB.prepare('SELECT id, name, type, topic, slowmode FROM channels WHERE server_id=? ORDER BY id').bind(sid).all(),
         env.DB.prepare('SELECT u.id, u.username, u.avatar_key, u.last_seen FROM members mm JOIN users u ON u.id=mm.user_id WHERE mm.server_id=? ORDER BY u.username').bind(sid).all(),
       ]);
       return json({ server: s, channels: chs.results, members: mems.results.map(({ last_seen, ...u }) => ({ ...u, online: isOnline(last_seen) })) });
+    }
+    if (m === 'PATCH') {
+      if (s.owner_id !== me.id) return err('только владелец сервера', 403);
+      const n = ((await req.json()).name || '').trim().slice(0, 40);
+      if (!n) return err('введи название');
+      await env.DB.prepare('UPDATE servers SET name=? WHERE id=?').bind(n, sid).run();
+      return json({ ok: true });
     }
     if (m === 'DELETE') {
       if (s.owner_id === me.id) {
@@ -220,6 +247,39 @@ async function handleApi(req, env, url) {
       .bind(sid, n, t, now).run();
     return json({ id: r.meta.last_row_id });
   }
+  // настройки канала: название, тема, медленный режим (только владелец сервера)
+  if ((mt = p.match(/^\/channels\/(\d+)$/)) && (m === 'PATCH' || m === 'DELETE')) {
+    const cid = Number(mt[1]);
+    const ch = await env.DB.prepare('SELECT c.id, c.server_id, s.owner_id FROM channels c JOIN servers s ON s.id = c.server_id WHERE c.id=?').bind(cid).first();
+    if (!ch || ch.owner_id !== me.id) return err('только владелец сервера', 403);
+    if (m === 'DELETE') {
+      const left = await env.DB.prepare('SELECT COUNT(*) n FROM channels WHERE server_id=?').bind(ch.server_id).first();
+      if (left.n <= 1) return err('нельзя удалить последний канал');
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM message_reactions WHERE message_id IN (SELECT id FROM messages WHERE channel_id=?)').bind(cid),
+        env.DB.prepare("DELETE FROM notifications WHERE channel_id=?").bind(cid),
+        env.DB.prepare('DELETE FROM channel_reads WHERE channel_id=?').bind(cid),
+        env.DB.prepare('DELETE FROM messages WHERE channel_id=?').bind(cid),
+        env.DB.prepare('DELETE FROM channels WHERE id=?').bind(cid),
+      ]);
+      return json({ ok: true });
+    }
+    const b = await req.json();
+    const sets = [], binds = [];
+    if (typeof b.name === 'string') {
+      const n = b.name.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 30);
+      if (!n) return err('введи название');
+      sets.push('name = ?'); binds.push(n);
+    }
+    if (typeof b.topic === 'string') { sets.push('topic = ?'); binds.push(b.topic.trim().slice(0, 200) || null); }
+    if (b.slowmode !== undefined) {
+      const v = Math.max(0, Math.min(21600, Number(b.slowmode) || 0));
+      sets.push('slowmode = ?'); binds.push(v);
+    }
+    if (!sets.length) return err('нечего менять');
+    await env.DB.prepare(`UPDATE channels SET ${sets.join(', ')} WHERE id=?`).bind(...binds, cid).run();
+    return json({ ok: true });
+  }
   if ((mt = p.match(/^\/servers\/(\d+)\/kick\/(\d+)$/)) && m === 'POST') {
     const sid = Number(mt[1]), uid = Number(mt[2]);
     const s = await env.DB.prepare('SELECT owner_id FROM servers WHERE id=?').bind(sid).first();
@@ -243,6 +303,14 @@ async function handleApi(req, env, url) {
       const b = await req.json();
       const content = (b.content || '').slice(0, 4000);
       if (!content.trim() && !b.att_key) return err('пустое сообщение');
+      if (ch.slowmode && ch.type !== 'dm') {
+        const owner = await env.DB.prepare('SELECT owner_id FROM servers WHERE id=?').bind(ch.server_id).first();
+        if (owner?.owner_id !== me.id) {
+          const last = await env.DB.prepare('SELECT created_at FROM messages WHERE channel_id=? AND user_id=? ORDER BY id DESC LIMIT 1').bind(cid, me.id).first();
+          const wait = last ? Math.ceil((last.created_at + ch.slowmode * 1000 - now) / 1000) : 0;
+          if (wait > 0) return err(`медленный режим: подожди ещё ${wait} с`, 429);
+        }
+      }
       let replyTo = null;
       if (b.reply_to) {
         const rm = await env.DB.prepare('SELECT id FROM messages WHERE id=? AND channel_id=?').bind(Number(b.reply_to), cid).first();

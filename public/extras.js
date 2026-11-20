@@ -139,21 +139,6 @@ async function discoverModal() {
     };
   });
 }
-function serverSettingsModal() {
-  const s = S.server.server;
-  modal(`<h3>настройки сервера</h3>
-    <label class="check"><input type="checkbox" id="ss-pub" ${s.is_public ? 'checked' : ''}> показывать в каталоге серверов</label>
-    <input id="ss-desc" maxlength="200" placeholder="короткое описание" value="${esc(s.description || '')}">
-    <div class="muted small">посты от имени сервера видны всем, если сервер публичный.</div>
-    <div class="modal-actions"><button class="ghost" id="m-cancel">отмена</button><button id="m-ok">сохранить</button></div>`, (c) => {
-    c.querySelector('#m-cancel').onclick = closeModal;
-    c.querySelector('#m-ok').onclick = async () => {
-      await api(`/servers/${s.id}/public`, { body: { is_public: c.querySelector('#ss-pub').checked, description: c.querySelector('#ss-desc').value } });
-      closeModal(); await loadServers(); openServer(s.id, S.channel?.id);
-    };
-  });
-}
-
 // ---- жалобы и модерация
 function reportModal(type, id) {
   modal(`<h3>пожаловаться</h3><div class="muted small">модератор посмотрит жалобу. бан — только за серьёзные нарушения.</div>
@@ -209,29 +194,6 @@ function applyPrefs() {
   localStorage.setItem('nc_prefs', JSON.stringify(S.prefs));
 }
 applyPrefs();
-function settingsModal() {
-  const theme = localStorage.getItem('nc_theme') || 'auto';
-  const notif = 'Notification' in window ? Notification.permission : 'denied';
-  modal(`<h3>настройки</h3>
-    <div class="set-row"><div class="grow"><b>тема</b></div><div class="seg" id="st-theme">${[['auto', 'авто'], ['light', 'светлая'], ['dark', 'тёмная']].map(([k, n]) => `<button class="${theme === k ? 'on' : ''}" data-t="${k}">${n}</button>`).join('')}</div></div>
-    <label class="set-row"><div class="grow"><b>тихий режим</b><div class="muted small">без счётчиков лайков и ответов, без подсказок справа</div></div><input type="checkbox" id="st-quiet" ${S.prefs.quiet ? 'checked' : ''}></label>
-    <label class="set-row"><div class="grow"><b>подсказки справа</b><div class="muted small">«в тренде» и «кого читать» рядом с лентой</div></div><input type="checkbox" id="st-rail" ${S.prefs.rail ? 'checked' : ''}></label>
-    <div class="set-row"><div class="grow"><b>уведомления в браузере</b><div class="muted small">когда вкладка в фоне</div></div>${notif === 'granted' ? '<span class="muted small">включены</span>' : notif === 'denied' ? '<span class="muted small">запрещены в браузере</span>' : '<button class="mini" id="st-notif">включить</button>'}</div>
-    <div class="set-row"><div class="grow"><b>горячие клавиши</b></div><button class="mini ghost" id="st-keys">показать</button></div>
-    <div class="modal-actions"><button id="m-ok">готово</button></div>`, (c) => {
-    c.querySelector('#m-ok').onclick = closeModal;
-    c.querySelector('#st-theme').onclick = (ev) => {
-      const b = ev.target.closest('[data-t]'); if (!b) return;
-      localStorage.setItem('nc_theme', b.dataset.t); applyTheme();
-      c.querySelectorAll('#st-theme button').forEach((x) => x.classList.toggle('on', x === b));
-    };
-    c.querySelector('#st-quiet').onchange = (ev) => { S.prefs.quiet = ev.target.checked; applyPrefs(); if (S.view.type === 'feed') openFeed(); };
-    c.querySelector('#st-rail').onchange = (ev) => { S.prefs.rail = ev.target.checked; applyPrefs(); if (S.view.type === 'feed') feedLayout(); };
-    c.querySelector('#st-notif')?.addEventListener('click', async () => { await Notification.requestPermission(); settingsModal(); });
-    c.querySelector('#st-keys').onclick = helpModal;
-  });
-}
-
 // ---- палитра команд (ctrl/⌘ + k)
 function paletteOpen() {
   if ($('#palette')) return;
@@ -298,6 +260,7 @@ document.addEventListener('keydown', (e) => {
     if ($('#palette')) return $('#palette').remove();
     if ($('#story-view')) return closeStory();
     if (!$('#modal').classList.contains('hidden')) return closeModal();
+    if ($('#sx')) return closeShell();
   }
   if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
     const items = [...document.querySelectorAll('#side-list [data-ch], #side-list [data-dm]')];

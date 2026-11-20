@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS users (
   last_seen INTEGER DEFAULT 0,
   banned_at INTEGER,
   tg_id TEXT,
-  pinned_post_id INTEGER
+  pinned_post_id INTEGER,
+  banner TEXT,
+  status TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_tg ON users(tg_id) WHERE tg_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS sessions (
@@ -42,7 +44,9 @@ CREATE TABLE IF NOT EXISTS channels (
   server_id INTEGER,
   name TEXT NOT NULL,
   type TEXT NOT NULL,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  topic TEXT,
+  slowmode INTEGER DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_channels_server ON channels(server_id);
 CREATE TABLE IF NOT EXISTS dm_members (

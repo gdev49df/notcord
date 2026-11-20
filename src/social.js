@@ -202,6 +202,11 @@ export async function handleSocial(c) {
     const sets = [], binds = [];
     if (typeof b.bio === 'string') { sets.push('bio = ?'); binds.push(b.bio.trim().slice(0, 200) || null); }
     if (typeof b.avatar_key === 'string') { sets.push('avatar_key = ?'); binds.push(b.avatar_key || null); }
+    if (typeof b.banner === 'string') {
+      if (b.banner && !/^#[0-9a-f]{6}$/i.test(b.banner)) return err('неверный цвет');
+      sets.push('banner = ?'); binds.push(b.banner || null);
+    }
+    if (typeof b.status === 'string') { sets.push('status = ?'); binds.push(b.status.trim().slice(0, 60) || null); }
     if (!sets.length) return err('нечего менять');
     await env.DB.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).bind(...binds, me.id).run();
     return json({ ok: true });
@@ -331,7 +336,7 @@ export async function handleSocial(c) {
   // --- люди
   if ((mt = p.match(/^\/users\/([^/]+)$/)) && m === 'GET') {
     const u = await env.DB.prepare(
-      'SELECT id, username, created_at, bio, avatar_key, last_seen, pinned_post_id FROM users WHERE username = ? AND banned_at IS NULL'
+      'SELECT id, username, created_at, bio, avatar_key, banner, status, last_seen, pinned_post_id FROM users WHERE username = ? AND banned_at IS NULL'
     ).bind(decodeURIComponent(mt[1])).first();
     if (!u) return err('пользователь не найден', 404);
     const [fr, fg, isf, close] = await Promise.all([

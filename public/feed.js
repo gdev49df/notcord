@@ -437,8 +437,8 @@ async function openProfile(username) {
   let d;
   try { d = await api(`/users/${encodeURIComponent(username)}`); } catch (e) { v.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
   const u = d.user;
-  v.innerHTML = `<div class="feed"><div class="profile">${avatar(u.username, 80, d.online)}
-    <div class="pr-main"><h2>${esc(u.username)}</h2>
+  v.innerHTML = `<div class="feed"><div class="profile"><div class="pr-banner" style="background:${u.banner || colorOf(u.username)}"></div>${avatar(u.username, 80, d.online)}
+    <div class="pr-main"><h2>${esc(u.username)}</h2>${u.status ? `<div class="pr-status">${esc(u.status)}</div>` : ''}
       ${u.bio ? `<div class="bio">${linkify(u.bio, true)}</div>` : ''}
       <div class="muted"><span id="pr-followers">${d.followers}</span> подписчиков · ${d.following} подписок${d.online ? ' · в сети' : ''}</div>
       <div class="muted">с нами с ${new Date(u.created_at).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</div></div>
@@ -464,35 +464,8 @@ async function openProfile(username) {
     const r = await api('/dms', { body: { userId: u.id } });
     await openHome(); await refreshHome(); openChannel({ id: r.id, name: r.username, type: 'dm' });
   });
-  $('#pr-edit')?.addEventListener('click', () => profileModal(u));
+  $('#pr-edit')?.addEventListener('click', () => settingsModal('profile'));
 }
-
-function profileModal(u) {
-  modal(`<h3>изменить профиль</h3>
-    <div class="edit-av">${avatar(u.username, 64)}${S.config.files ? `<button class="ghost" id="av-pick">сменить фото</button><button class="icon-btn" id="av-del" title="убрать фото" aria-label="убрать фото">${ic('trash')}</button>` : '<span class="muted small">загрузка фото появится после включения r2</span>'}</div>
-    <textarea id="pf-bio" rows="3" maxlength="200" placeholder="о себе">${esc(u.bio || '')}</textarea>
-    <input type="file" id="av-in" class="hidden" accept="image/*"><div class="error" id="m-err"></div>
-    <div class="modal-actions"><button class="ghost" id="m-cancel">отмена</button><button id="m-ok">сохранить</button></div>`, (c) => {
-    let key;
-    c.querySelector('#m-cancel').onclick = closeModal;
-    c.querySelector('#av-pick')?.addEventListener('click', () => c.querySelector('#av-in').click());
-    c.querySelector('#av-del')?.addEventListener('click', () => { key = ''; toast('фото будет убрано'); });
-    c.querySelector('#av-in').onchange = async (e) => {
-      const f = e.target.files[0]; if (!f) return;
-      try { key = (await uploadFile(f)).att_key; toast('фото загружено, не забудь сохранить'); } catch (er) { c.querySelector('#m-err').textContent = er.message; }
-    };
-    c.querySelector('#m-ok').onclick = async () => {
-      try {
-        const body = { bio: c.querySelector('#pf-bio').value };
-        if (key !== undefined) body.avatar_key = key;
-        await api('/profile', { method: 'PATCH', body });
-        if (key !== undefined) A[S.user.username] = key || null;
-        closeModal(); renderMe(); openProfile(S.user.username);
-      } catch (er) { c.querySelector('#m-err').textContent = er.message; }
-    };
-  });
-}
-
 
 // ---- лента внутри сервера
 async function openServerFeed() {

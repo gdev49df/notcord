@@ -75,6 +75,7 @@ const ICONS = {
   settings: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>',
   stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
 const ic = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
 
@@ -249,22 +250,6 @@ function addServerModal() {
   });
 }
 
-function channelModal() {
-  modal(`<h3>новый канал</h3>
-    <input id="m-name" placeholder="название">
-    <select id="m-type"><option value="text">текстовый</option><option value="voice">голосовой</option></select>
-    <div class="error" id="m-err"></div>
-    <div class="modal-actions"><button class="ghost" id="m-cancel">отмена</button><button id="m-ok">создать</button></div>`, (c) => {
-    c.querySelector('#m-cancel').onclick = closeModal;
-    c.querySelector('#m-ok').onclick = async () => {
-      try {
-        await api(`/servers/${S.server.server.id}/channels`, { body: { name: c.querySelector('#m-name').value, type: c.querySelector('#m-type').value } });
-        closeModal(); await openServer(S.server.server.id, S.channel?.id);
-      } catch (e) { c.querySelector('#m-err').textContent = e.message; }
-    };
-  });
-}
-
 function inviteModal() {
   const link = `${location.origin}/?join=${S.server.server.invite}`;
   modal(`<h3>пригласить людей</h3>
@@ -361,12 +346,14 @@ function renderServerSide() {
     if (!confirm(owner ? 'удалить сервер навсегда?' : 'выйти с сервера?')) return;
     await api(`/servers/${server.id}`, { method: 'DELETE' }); await loadServers(); openHome();
   };
-  const group = (type, title) => `<div class="cat"><span>${title}</span>${owner ? `<button data-add="1" title="создать канал" aria-label="создать канал">${ic('plus')}</button>` : ''}</div>` +
-    channels.filter((c) => c.type === type).map((c) => `<div class="item ${S.channel?.id === c.id ? 'on' : ''}" data-ch="${c.id}">${ic(type === 'text' ? 'hash' : 'speaker')} <span class="grow">${esc(c.name)}</span>${badge(S.unread[c.id])}</div>` +
+  const group = (type, title) => `<div class="cat"><span>${title}</span>${owner ? `<button data-add="${type}" title="Создать канал" aria-label="Создать канал">${ic('plus')}</button>` : ''}</div>` +
+    channels.filter((c) => c.type === type).map((c) => `<div class="item ${S.channel?.id === c.id ? 'on' : ''}" data-ch="${c.id}">${ic(type === 'text' ? 'hash' : 'speaker')} <span class="grow">${esc(c.name)}</span>${owner ? `<button class="icon-btn ch-gear" data-gear="${c.id}" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}${badge(S.unread[c.id])}</div>` +
       (type === 'voice' ? `<div class="voice-users" id="vu-${c.id}">${(S.voiceUsers[c.id] || []).map((n) => `<div>• ${esc(n)}</div>`).join('')}</div>` : '')).join('');
   $('#side-list').innerHTML = `<div class="item ${S.serverFeed ? 'on' : ''}" data-sfeed="1">${ic('globe')} <span class="grow">лента сервера</span></div>` + group('text', 'текстовые каналы') + group('voice', 'голосовые каналы');
   $('#side-list').onclick = (e) => {
-    if (e.target.closest('[data-add]')) return channelModal();
+    const g = e.target.closest('[data-gear]');
+    if (g) { e.stopPropagation(); return channelSettings(channels.find((c) => c.id === Number(g.dataset.gear))); }
+    if (e.target.closest('[data-add]')) return channelModal(e.target.closest('[data-add]').dataset.add);
     if (e.target.closest('[data-sfeed]')) { $('#app').classList.remove('show-side'); return openServerFeed(); }
     const t = e.target.closest('[data-ch]');
     if (!t) return;
@@ -403,8 +390,8 @@ function openChannel(ch) {
   if (S.unread[ch.id]) { delete S.unread[ch.id]; recountUnread?.(); }
   if (S.view.type === 'server') renderServerSide(); else renderHomeSide();
   renderRail();
-  $('#main-head').innerHTML = `${burger()}<span class="muted">${ch.type === 'dm' ? '@' : ic('hash')}</span> <span class="grow">${esc(ch.name)}</span><button class="icon-btn" id="pins" title="закреплённые" aria-label="закреплённые">${ic('pin')}</button>`;
-  $('#main-head').onclick = (e) => { burgerClick(e); if (e.target.closest('#pins')) pinsModal(); };
+  $('#main-head').innerHTML = `${burger()}<span class="muted">${ch.type === 'dm' ? '@' : ic('hash')}</span> <span>${esc(ch.name)}</span>${ch.topic ? `<span class="ch-topic grow" title="${esc(ch.topic)}">${esc(ch.topic)}</span>` : '<span class="grow"></span>'}${ch.slowmode ? `<span class="muted small slow-tag" title="Медленный режим">${ic('clock')} ${slowLabel(ch.slowmode)}</span>` : ''}${S.view.type === 'server' && S.server?.server.owner_id === S.user.id ? `<button class="icon-btn" id="ch-set" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}<button class="icon-btn" id="pins" title="Закреплённые" aria-label="Закреплённые">${ic('pin')}</button>`;
+  $('#main-head').onclick = (e) => { burgerClick(e); if (e.target.closest('#pins')) pinsModal(); if (e.target.closest('#ch-set')) channelSettings(ch); };
   const v = $('#view');
   v.onclick = null;
   v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
