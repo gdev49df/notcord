@@ -706,3 +706,8 @@ button.sx-tab.danger:hover{background:color-mix(in srgb,var(--red) 14%,transpare
 @keyframes skel{50%{opacity:.55}}
 @media(prefers-reduced-motion:reduce){.skel-av,.skel-bar{animation:none}}
 .me-bar .me-name,.me-bar .me-name:hover{text-decoration:none}
+.me-bar{height:56px;padding:0 8px;gap:4px;background:var(--night);border-top:1px solid var(--line);flex:none}
+.me-bar #me-avatar{width:34px;height:34px;flex:none}
+.me-bar .me-name{margin-left:4px;font-size:14px;font-weight:700;line-height:1.2}
+.me-bar .icon-btn{width:34px;height:34px;padding:0;border-radius:8px;flex:none}
+.me-bar #me-avatar,.me-bar .me-name{border-radius:8px}
