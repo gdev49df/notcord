@@ -80,7 +80,7 @@ a{color:var(--text);text-decoration:underline;text-decoration-color:var(--muted)
 @keyframes fade{from{opacity:0}to{opacity:1}}
 
 /* каркас: плавающие панели */
-.app{position:relative;z-index:1;display:grid;grid-template-columns:76px 252px 1fr 224px;gap:10px;padding:10px;height:100dvh}
+.app{position:relative;z-index:1;display:grid;grid-template-columns:76px 252px 1fr 300px;gap:10px;padding:10px;height:100dvh}
 .panel{background:var(--glass);backdrop-filter:blur(26px) saturate(170%);-webkit-backdrop-filter:blur(26px) saturate(170%);border:1px solid var(--line);border-top-color:#ffffff24;box-shadow:0 12px 40px #00000030;min-height:0;min-width:0}
 .rail{border-radius:12px;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px 0;scrollbar-width:none}
 .rail::-webkit-scrollbar{display:none}
@@ -674,3 +674,6 @@ button.sx-tab.danger:hover{background:color-mix(in srgb,var(--red) 14%,transpare
 .ctx .has-sub{position:relative}.ctx .has-sub:hover>.sub{display:block}
 .ctx .dot{width:12px;height:12px;border-radius:50%;flex:none;margin-right:8px}
 .ctx .ck{width:18px;height:18px;border:1.5px solid var(--muted);border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:12px}.ctx .ck.on{background:var(--text);color:var(--surface);border-color:var(--text)}
+.home:has(>.empty){max-width:none;display:flex;flex-direction:column}
+.home>.empty{margin:auto;text-align:center}
+.me-bar #me-avatar,.me-bar .me-name{cursor:pointer}.me-bar .me-name:hover{text-decoration:underline}

@@ -191,3 +191,9 @@ function userCtx(username, uidHint, x, y, anchor) {
     else if (c === 'kick' && confirm('Исключить участника?')) { try { await api(`/servers/${S.server.server.id}/kick/${id}`, { method: 'POST' }); await reloadServer(); } catch (er) { toast(er.message); } }
   };
 }
+
+// клик по своему аватару/нику внизу слева — карточка профиля
+document.querySelector('.me-bar')?.addEventListener('click', (e) => {
+  if (e.target.closest('button') || !S.user) return;
+  if (e.target.closest('#me-avatar, #me-name')) { e.stopPropagation(); userCard(S.user.username, e.target.closest('#me-avatar, #me-name')); }
+});
