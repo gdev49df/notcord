@@ -1,0 +1,17 @@
+ALTER TABLE users ADD COLUMN presence TEXT DEFAULT 'online';
+ALTER TABLE users ADD COLUMN activity TEXT;
+ALTER TABLE servers ADD COLUMN rules TEXT;
+ALTER TABLE members ADD COLUMN accepted INTEGER DEFAULT 1;
+ALTER TABLE channels ADD COLUMN is_private INTEGER DEFAULT 0;
+ALTER TABLE messages ADD COLUMN thread_id INTEGER;
+CREATE INDEX IF NOT EXISTS idx_msg_thread ON messages(thread_id, id);
+CREATE TABLE IF NOT EXISTS roles (id INTEGER PRIMARY KEY AUTOINCREMENT, server_id INTEGER NOT NULL, name TEXT NOT NULL, color TEXT, perms INTEGER NOT NULL DEFAULT 0, position INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS idx_roles_server ON roles(server_id);
+CREATE TABLE IF NOT EXISTS member_roles (server_id INTEGER NOT NULL, user_id INTEGER NOT NULL, role_id INTEGER NOT NULL, PRIMARY KEY (server_id, user_id, role_id));
+CREATE INDEX IF NOT EXISTS idx_mr_role ON member_roles(role_id);
+CREATE TABLE IF NOT EXISTS channel_roles (channel_id INTEGER NOT NULL, role_id INTEGER NOT NULL, PRIMARY KEY (channel_id, role_id));
+CREATE TABLE IF NOT EXISTS emojis (id INTEGER PRIMARY KEY AUTOINCREMENT, server_id INTEGER NOT NULL, name TEXT NOT NULL, att_key TEXT NOT NULL, UNIQUE (server_id, name));
+CREATE TABLE IF NOT EXISTS audit_log (id INTEGER PRIMARY KEY AUTOINCREMENT, server_id INTEGER NOT NULL, actor_id INTEGER NOT NULL, action TEXT NOT NULL, target TEXT, created_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_audit_server ON audit_log(server_id, id);
+CREATE TABLE IF NOT EXISTS calls (channel_id INTEGER PRIMARY KEY, caller_id INTEGER NOT NULL, created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS link_previews (url TEXT PRIMARY KEY, title TEXT, description TEXT, image TEXT, site TEXT, fetched_at INTEGER NOT NULL);

@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS users (
   tg_id TEXT,
   pinned_post_id INTEGER,
   banner TEXT,
-  status TEXT
+  status TEXT,
+  presence TEXT DEFAULT 'online',
+  activity TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_tg ON users(tg_id) WHERE tg_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS sessions (
@@ -29,12 +31,14 @@ CREATE TABLE IF NOT EXISTS servers (
   invite TEXT NOT NULL UNIQUE,
   created_at INTEGER NOT NULL,
   is_public INTEGER DEFAULT 0,
-  description TEXT
+  description TEXT,
+  rules TEXT
 );
 CREATE TABLE IF NOT EXISTS members (
   server_id INTEGER NOT NULL,
   user_id INTEGER NOT NULL,
   joined_at INTEGER NOT NULL,
+  accepted INTEGER DEFAULT 1,
   PRIMARY KEY (server_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_members_user ON members(user_id);
@@ -46,7 +50,8 @@ CREATE TABLE IF NOT EXISTS channels (
   type TEXT NOT NULL,
   created_at INTEGER NOT NULL,
   topic TEXT,
-  slowmode INTEGER DEFAULT 0
+  slowmode INTEGER DEFAULT 0,
+  is_private INTEGER DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_channels_server ON channels(server_id);
 CREATE TABLE IF NOT EXISTS dm_members (
@@ -66,9 +71,11 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at INTEGER NOT NULL,
   reply_to INTEGER,
   edited_at INTEGER,
-  pinned INTEGER DEFAULT 0
+  pinned INTEGER DEFAULT 0,
+  thread_id INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel_id, id);
+CREATE INDEX IF NOT EXISTS idx_msg_thread ON messages(thread_id, id);
 -- status: pending (from -> to) | accepted
 CREATE TABLE IF NOT EXISTS friends (
   user_a INTEGER NOT NULL,
@@ -178,3 +185,14 @@ CREATE TABLE IF NOT EXISTS reports (
   created_at INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'open'
 );
+
+CREATE TABLE IF NOT EXISTS roles (id INTEGER PRIMARY KEY AUTOINCREMENT, server_id INTEGER NOT NULL, name TEXT NOT NULL, color TEXT, perms INTEGER NOT NULL DEFAULT 0, position INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS idx_roles_server ON roles(server_id);
+CREATE TABLE IF NOT EXISTS member_roles (server_id INTEGER NOT NULL, user_id INTEGER NOT NULL, role_id INTEGER NOT NULL, PRIMARY KEY (server_id, user_id, role_id));
+CREATE INDEX IF NOT EXISTS idx_mr_role ON member_roles(role_id);
+CREATE TABLE IF NOT EXISTS channel_roles (channel_id INTEGER NOT NULL, role_id INTEGER NOT NULL, PRIMARY KEY (channel_id, role_id));
+CREATE TABLE IF NOT EXISTS emojis (id INTEGER PRIMARY KEY AUTOINCREMENT, server_id INTEGER NOT NULL, name TEXT NOT NULL, att_key TEXT NOT NULL, UNIQUE (server_id, name));
+CREATE TABLE IF NOT EXISTS audit_log (id INTEGER PRIMARY KEY AUTOINCREMENT, server_id INTEGER NOT NULL, actor_id INTEGER NOT NULL, action TEXT NOT NULL, target TEXT, created_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_audit_server ON audit_log(server_id, id);
+CREATE TABLE IF NOT EXISTS calls (channel_id INTEGER PRIMARY KEY, caller_id INTEGER NOT NULL, created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS link_previews (url TEXT PRIMARY KEY, title TEXT, description TEXT, image TEXT, site TEXT, fetched_at INTEGER NOT NULL);

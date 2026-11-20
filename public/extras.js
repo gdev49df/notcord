@@ -246,7 +246,8 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('button[data-follow],[data-kick],.mtools')) return;
   e.preventDefault();
   closeStory?.();
-  if (u) openProfile(u.dataset.user); else openSearch('#' + t.dataset.tag);
+  if (u && u.closest('#msgs, #members, #thread-panel, .search-res')) userCard(u.dataset.user, u);
+  else if (u) openProfile(u.dataset.user); else openSearch('#' + t.dataset.tag);
 });
 function helpModal() {
   const rows = [['Ctrl/⌘ + K', 'быстрый переход и поиск'], ['Alt + ↑ / ↓', 'предыдущий / следующий канал'], ['Esc', 'закрыть окно'], ['Enter', 'отправить сообщение'], ['Shift + Enter', 'новая строка'], ['Ctrl + Enter', 'опубликовать пост'], ['?', 'эта подсказка']];
@@ -258,6 +259,7 @@ document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); paletteOpen(); return; }
   if (e.key === 'Escape') {
     if ($('#palette')) return $('#palette').remove();
+    if ($('#ucard')) return $('#ucard').remove();
     if ($('#story-view')) return closeStory();
     if (!$('#modal').classList.contains('hidden')) return closeModal();
     if ($('#sx')) return closeShell();

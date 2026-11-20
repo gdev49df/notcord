@@ -541,3 +541,19 @@ button.sx-tab.danger:hover{background:color-mix(in srgb,var(--red) 14%,transpare
 
 #mem-tg.on{color:var(--text)}#mem-tg:not(.on){color:var(--muted)}
 .app{transition:grid-template-columns .45s var(--spring)}
+
+/* карточка профиля */
+.ucard{position:fixed;z-index:8;width:330px;background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 20px 70px #000a;animation:rise .45s var(--spring)}
+.uc-load{padding:24px;text-align:center}
+.uc-banner{height:70px}
+.uc-av{margin:-40px 0 0 14px;width:88px;height:88px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center}
+.uc-body{padding:6px 16px 16px;display:flex;flex-direction:column;gap:3px}
+.uc-name{font-weight:700;font-size:19px;word-break:break-word}
+.uc-status{color:var(--muted);font-size:14px}
+.uc-sep{height:1px;background:var(--line);margin:8px 0 4px}
+.uc-bio{font-size:14px;white-space:pre-wrap;word-break:break-word}
+.uc-btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.uc-btns button{padding:7px 14px;font-size:13.5px}
+.uc-roles{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.role-chip{display:inline-flex;align-items:center;gap:6px;background:var(--raise);border-radius:8px;padding:3px 9px;font-size:12.5px;font-weight:600}
+.role-chip i{width:10px;height:10px;border-radius:50%;display:block}
+@media(max-width:700px){.ucard{left:50%!important;top:auto!important;bottom:20px;transform:translateX(-50%);width:min(340px,92vw)}}

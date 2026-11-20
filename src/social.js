@@ -345,6 +345,10 @@ export async function handleSocial(c) {
       env.DB.prepare('SELECT 1 x FROM follows WHERE follower_id=? AND followee_id=?').bind(me.id, u.id).first(),
       env.DB.prepare('SELECT 1 x FROM close_friends WHERE user_id=? AND friend_id=?').bind(me.id, u.id).first(),
     ]);
+    if (url.searchParams.get('card')) {
+      const { pinned_post_id, last_seen, ...user } = u;
+      return json({ user, followers: fr.n, following: fg.n, is_following: !!isf, is_me: u.id === me.id, is_close: !!close, online: isOnline(last_seen) });
+    }
     const pinned = u.pinned_post_id ? await getPost(env, me, u.pinned_post_id) : null;
     const posts = await queryPosts(env, me, 'p.user_id = ? AND p.parent_id IS NULL AND p.id != ?', [u.id, u.pinned_post_id || 0]);
     const { pinned_post_id, last_seen, ...user } = u;
