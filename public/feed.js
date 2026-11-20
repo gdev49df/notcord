@@ -120,6 +120,7 @@ function bindComposer(onSubmit) {
 function feedSide() {
   const pg = S.view.type === 'feed' ? S.view.page : '';
   $('#side-head').innerHTML = LOGO;
+  if (!S._logoShown) { S._logoShown = true; mosaicResolve($('#side-head')); }
   const items = [['feed', 'лента', 'globe', ['all', 'following', 'clips'].includes(pg)], ['search', 'поиск', 'search', pg === 'search'], ['me', 'моя страница', 'chat', pg === 'me']];
   if (S.user.is_admin) items.push(['admin', 'жалобы', 'shield', pg === 'admin']);
   items.push(['settings', 'настройки', 'settings', false]);

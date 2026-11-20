@@ -138,6 +138,8 @@ async function settingsModal(start) {
         const theme = localStorage.getItem('nc_theme') || 'auto';
         box.innerHTML = `<h2>Внешний вид</h2><div class="sx-l">Тема</div>
           <div class="sx-themes" id="th">${[['auto', 'Как в системе'], ['dark', 'Тёмная'], ['light', 'Светлая']].map(([k, n]) => `<button class="th ${theme === k ? 'on' : ''}" data-t="${k}"><span class="th-prev ${k}"><i></i><i></i></span><span>${n}</span></button>`).join('')}</div>
+          <div class="sx-div"></div><h3>Анимации</h3>
+          ${toggleRow('st-mosaic', 'Анимация логотипа', 'Логотип собирается из пикселей при входе', S.prefs.mosaic !== false)}
           <div class="sx-div"></div><h3>Лента</h3>
           ${toggleRow('st-quiet', 'Тихий режим', 'Без счётчиков лайков и ответов, без подсказок справа', S.prefs.quiet)}
           ${toggleRow('st-rail', 'Подсказки справа', '«В тренде» и «Кого читать» рядом с лентой', S.prefs.rail)}`;
@@ -146,6 +148,7 @@ async function settingsModal(start) {
           localStorage.setItem('nc_theme', b.dataset.t); applyTheme();
           box.querySelectorAll('.th').forEach((x) => x.classList.toggle('on', x === b));
         };
+        box.querySelector('#st-mosaic').onchange = (ev) => { S.prefs.mosaic = ev.target.checked; applyPrefs() };
         box.querySelector('#st-quiet').onchange = (ev) => { S.prefs.quiet = ev.target.checked; applyPrefs(); if (S.view.type === 'feed') openFeed(); };
         box.querySelector('#st-rail').onchange = (ev) => { S.prefs.rail = ev.target.checked; applyPrefs(); if (S.view.type === 'feed') feedLayout(); };
       } },

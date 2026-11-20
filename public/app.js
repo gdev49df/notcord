@@ -126,6 +126,7 @@ let regMode = false;
 function showAuth() {
   $('#app').classList.add('hidden');
   $('#auth').classList.remove('hidden');
+  mosaicResolve($('.auth-hero .wordmark'));
 }
 $('#a-eye').onclick = () => {
   const inp = $('#a-pass'), show = inp.type === 'password';
@@ -772,4 +773,51 @@ function toggleMembers() {
   $('#app').classList.toggle('no-members', !!S.prefs.hideMembers);
   const b = $('#mem-tg');
   if (b) { b.classList.toggle('on', !S.prefs.hideMembers); b.title = S.prefs.hideMembers ? 'Показать участников' : 'Скрыть участников'; b.setAttribute('aria-pressed', String(!S.prefs.hideMembers)); }
+}
+
+// ---- анимация «Mosaic resolve»: логотип собирается из крупных пикселей в чёткую картинку
+// убрать совсем: в настройках «Внешний вид» или удалить эту функцию и два вызова mosaicResolve
+function mosaicResolve(host, duration = 1100) {
+  const svg = host?.querySelector('svg');
+  if (!svg || S.prefs.mosaic === false || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const r = svg.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const W = Math.round(r.width * dpr), H = Math.round(r.height * dpr);
+  const cs = getComputedStyle(svg);
+  const src = new XMLSerializer().serializeToString(svg)
+    .replace(/currentColor/g, cs.color)
+    .replace(/var\(--bg,#000\)/g, cs.getPropertyValue('--bg').trim() || '#000')
+    .replace('<svg ', `<svg width="${W}" height="${H}" `);
+  const img = new Image();
+  img.onload = () => {
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    cv.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none';
+    const pos = getComputedStyle(host).position;
+    if (pos === 'static') host.style.position = 'relative';
+    host.appendChild(cv);
+    svg.style.visibility = 'hidden';
+    const ctx = cv.getContext('2d');
+    const tiny = document.createElement('canvas'), tctx = tiny.getContext('2d');
+    const t0 = performance.now();
+    const frame = (now) => {
+      const k = Math.min(1, (now - t0) / duration);
+      // размер блока: от крупного к 1px, быстро в начале и мягко в конце
+      const block = Math.max(1, Math.round(Math.pow(1 - k, 2.2) * H / 2.2));
+      if (block <= 1 || k >= 1) { cv.remove(); svg.style.visibility = ''; return; }
+      tiny.width = Math.max(1, Math.ceil(W / block)); tiny.height = Math.max(1, Math.ceil(H / block));
+      tctx.clearRect(0, 0, tiny.width, tiny.height);
+      tctx.imageSmoothingEnabled = true;
+      tctx.drawImage(img, 0, 0, tiny.width, tiny.height);
+      ctx.clearRect(0, 0, W, H);
+      ctx.imageSmoothingEnabled = false;
+      ctx.globalAlpha = 0.35 + 0.65 * k;
+      ctx.drawImage(tiny, 0, 0, tiny.width, tiny.height, 0, 0, tiny.width * block, tiny.height * block);
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  };
+  img.onerror = () => {};
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(src);
 }
