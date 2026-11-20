@@ -612,3 +612,18 @@ button.sx-tab.danger:hover{background:color-mix(in srgb,var(--red) 14%,transpare
 .tp-composer{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}.tp-composer textarea{flex:1;resize:none;min-height:42px}
 .rail .ic .i,.rail .ic svg{width:26px;height:26px}
 .rail .ic.on::before{top:12px}
+
+/* вкладка «Друзья» */
+.fr-title{display:inline-flex;align-items:center;gap:8px;margin-right:4px}.fr-title .i{width:20px;height:20px}
+.fr-dot{width:4px;height:4px;border-radius:50%;background:var(--muted);margin:0 8px}
+.tabs button.add-tab{color:var(--text);font-weight:600}
+.tabs button.add-tab.on{background:var(--text);color:var(--bg,var(--surface))}
+.addpage{max-width:none;padding:24px 28px}
+.addpage h2{margin:0 0 6px;font-size:20px}.addpage .lead{font-weight:500;margin-bottom:16px}
+.addbox{border:1px solid var(--line);border-radius:12px;background:var(--deep);padding:8px 8px 8px 16px;max-width:1100px}
+.addrow{display:flex;gap:10px;align-items:center}.addrow input{border:0;background:transparent;box-shadow:none!important;padding:10px 0;font-size:16px}
+.addrow button{flex:none;white-space:nowrap}.addrow button:disabled{opacity:.4;cursor:default}
+.sep-line{height:1px;background:var(--line);margin:28px -28px}
+.disc-card{width:min(560px,100%);justify-content:flex-start;gap:14px;background:var(--deep);color:var(--text);border:1px solid var(--line);padding:10px 14px;border-radius:12px;text-align:left}
+.disc-card:hover{background:var(--raise);filter:none}.disc-ic{width:36px;height:36px;border-radius:10px;background:var(--sky);color:var(--on-sky);display:flex;align-items:center;justify-content:center}
+.disc-card .i{width:20px;height:20px}

@@ -77,6 +77,7 @@ const ICONS = {
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   users: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.4-3.2 2.6-5 5.5-5s5.1 1.8 5.5 5M16 5.6a3.2 3.2 0 0 1 0 5.8M17.5 14.3c1.9.5 3 2.1 3.3 4.7"/>',
   lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  chevron: '<path d="m9 6 6 6-6 6"/>',
   thread: '<circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M6 8v4a4 4 0 0 0 4 4h6"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
@@ -250,7 +251,7 @@ function addServerModal() {
     <div class="muted" style="text-align:center">Или</div>
     <input id="m-code" placeholder="Код приглашения">
     <button class="ghost" id="m-join">Присоединиться</button>
-    <button class="ghost" id="m-disc">${ic('compass')} каталог открытых серверов</button>
+    <button class="ghost" id="m-disc">${ic('compass')} Каталог открытых серверов</button>
     <div class="error" id="m-err"></div>`, (c) => {
     c.querySelector('#m-disc').onclick = () => { closeModal(); discoverModal(); };
     c.querySelector('#m-create').onclick = async () => {
@@ -295,7 +296,7 @@ async function refreshHome() {
 
 function renderHomeSide() {
   $('#side-list').innerHTML =
-    `<div class="item ${!S.channel ? 'on' : ''}" data-act="friends">${ic('friends')} друзья</div><div class="cat">Личные сообщения</div>` +
+    `<div class="item ${!S.channel ? 'on' : ''}" data-act="friends">${ic('friends')} Друзья</div><div class="cat">Личные сообщения</div>` +
     S.dms.map((d) => `<div class="item ${S.channel?.id === d.id ? 'on' : ''}" data-dm="${d.id}" data-name="${esc(d.username)}">${avatar(d.username, 24, d.online)}<span class="grow">${esc(d.username)}</span>${badge(S.unread[d.id])}</div>`).join('');
   $('#side-list').onclick = (e) => {
     const t = e.target.closest('.item');
@@ -307,20 +308,32 @@ function renderHomeSide() {
 }
 
 function showFriends() {
-  $('#main-head').innerHTML = burger() + `<div class="tabs">${['friends', 'incoming', 'add'].map((t) =>
-    `<button class="${S.homeTab === t ? 'on' : ''}" data-tab="${t}">${{ friends: 'Друзья', incoming: 'Запросы', add: 'Добавить' }[t]}</button>`).join('')}</div>`;
+  const tabs = [['friends', 'В сети'], ['all', 'Все'], ['pending', 'Ожидание'], ['add', 'Добавить в друзья']];
+  if (S.homeTab === 'incoming') S.homeTab = 'pending';
+  if (!tabs.some(([k]) => k === S.homeTab)) S.homeTab = 'friends';
+  $('#main-head').innerHTML = burger() + `<span class="fr-title">${ic('users')}<b>Друзья</b></span><span class="fr-dot"></span><div class="tabs">${tabs.map(([k, n]) =>
+    `<button class="${S.homeTab === k ? 'on' : ''}${k === 'add' ? ' add-tab' : ''}" data-tab="${k}">${n}</button>`).join('')}</div>`;
   $('#main-head').onclick = (e) => { const t = e.target.closest('[data-tab]'); if (t) { S.homeTab = t.dataset.tab; showFriends(); } else burgerClick(e); };
   const v = $('#view');
   if (S.homeTab === 'add') {
-    v.innerHTML = `<div class="home"><h3>Добавить друга</h3><div class="muted">Введи ник пользователя</div>
-      <div class="addfriend"><input id="f-name" placeholder="Ник"><button id="f-send">Отправить</button></div><div id="f-msg" class="muted"></div></div>`;
-    $('#f-send').onclick = async () => {
-      try { await api('/friends', { body: { username: $('#f-name').value } }); $('#f-msg').textContent = 'Запрос отправлен'; await refreshHome(); }
+    v.innerHTML = `<div class="home addpage"><h2>Добавить в друзья</h2><div class="lead">Вы можете добавить друзей по нику.</div>
+      <div class="addbox"><div class="addrow"><input id="f-name" placeholder="Введите ник" autocomplete="off"><button id="f-send" disabled>Отправить запрос дружбы</button></div></div>
+      <div id="f-msg" class="muted small"></div>
+      <div class="sep-line"></div><h2>Где ещё можно завести друзей</h2>
+      <div class="lead">Нет знакомых пользователей? Тогда просмотрите каталог открытых серверов, где найдётся всё: от игр до музыки и кулинарии.</div>
+      <button class="disc-card" id="f-disc"><span class="disc-ic">${ic('compass')}</span><b class="grow">Исследуйте доступные серверы</b>${ic('chevron')}</button></div>`;
+    const inp = $('#f-name'), btn = $('#f-send');
+    inp.oninput = () => { btn.disabled = !inp.value.trim(); };
+    inp.onkeydown = (e) => { if (e.key === 'Enter' && !btn.disabled) btn.click(); };
+    btn.onclick = async () => {
+      try { await api('/friends', { body: { username: inp.value.trim() } }); $('#f-msg').innerHTML = `Запрос отправлен пользователю <b>${esc(inp.value.trim())}</b>.`; inp.value = ''; btn.disabled = true; await refreshHome(); }
       catch (e) { $('#f-msg').innerHTML = `<span class="error">${esc(e.message)}</span>`; }
     };
+    $('#f-disc').onclick = () => discoverModal();
+    inp.focus();
     return;
   }
-  const list = S.friends.filter((f) => (S.homeTab === 'friends' ? f.status === 'friend' : f.status !== 'friend'));
+  const list = S.friends.filter((f) => S.homeTab === 'friends' ? f.status === 'friend' && f.online : S.homeTab === 'all' ? f.status === 'friend' : f.status !== 'friend');
   v.innerHTML = `<div class="home">${list.length ? list.map((f) => `
     <div class="row">${avatar(f.username, 36, f.status === 'friend' ? f.online : undefined)}<div class="grow"><b>${esc(f.username)}</b>${f.status === 'outgoing' ? '<div class="muted">Запрос отправлен</div>' : ''}</div>
     ${f.status === 'friend' ? `<button data-dm="${f.id}">Сообщение</button>` : ''}
