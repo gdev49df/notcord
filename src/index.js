@@ -28,7 +28,7 @@ async function authUser(req, env, url) {
   if (!token && url) token = url.searchParams.get('token');
   if (!token) return null;
   return await env.DB.prepare(
-    'SELECT u.id, u.username, u.avatar_key, u.bio, u.banner, u.status, u.status_until, u.presence, u.activity FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND u.banned_at IS NULL'
+    'SELECT u.id, u.username, u.avatar_key, u.bio, u.banner, u.pronouns, u.link_tg, u.link_tt, u.link_ig, u.status, u.status_until, u.presence, u.activity FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND u.banned_at IS NULL'
   ).bind(token).first();
 }
 

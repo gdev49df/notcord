@@ -216,7 +216,7 @@ export async function handleSocial(c) {
     if (typeof b.bio === 'string') { sets.push('bio = ?'); binds.push(b.bio.trim().slice(0, 200) || null); }
     if (typeof b.avatar_key === 'string') { sets.push('avatar_key = ?'); binds.push(b.avatar_key || null); }
     if (typeof b.banner === 'string') {
-      if (b.banner && !/^#[0-9a-f]{6}$/i.test(b.banner) && !/^m_[a-f0-9]{10,40}$/.test(b.banner)) return err('неверный баннер');
+      if (b.banner && !/^#[0-9a-f]{6}$/i.test(b.banner) && !/^m_[a-f0-9]{10,40}$/.test(b.banner) && !/^g:#[0-9a-f]{6},#[0-9a-f]{6}$/i.test(b.banner)) return err('неверный цвет профиля');
       sets.push('banner = ?'); binds.push(b.banner || null);
     }
     if (typeof b.status === 'string') {
@@ -224,6 +224,15 @@ export async function handleSocial(c) {
       const ttl = Number(b.status_ttl) || 0; // минуты, 0 = не очищать
       sets.push('status = ?', 'status_until = ?');
       binds.push(text || null, text && ttl > 0 ? Date.now() + Math.min(ttl, 1440) * 60000 : null);
+    }
+    if (typeof b.pronouns === 'string') { sets.push('pronouns = ?'); binds.push(b.pronouns.trim().slice(0, 20) || null); }
+    const LINKS = { link_tg: [/(?:t|telegram)\.me\/@?([A-Za-z0-9_]+)/i, 'Telegram'], link_tt: [/tiktok\.com\/@?([A-Za-z0-9._]+)/i, 'TikTok'], link_ig: [/instagram\.com\/([A-Za-z0-9._]+)/i, 'Instagram'] };
+    for (const [col, [re, name]] of Object.entries(LINKS)) {
+      if (typeof b[col] !== 'string') continue;
+      const v = b[col].trim();
+      let h = null;
+      if (v) { const mm = v.match(re); h = (mm ? mm[1] : v.replace(/^@/, '')); if (!/^[A-Za-z0-9._]{2,32}$/.test(h)) return err('неверная ссылка ' + name); }
+      sets.push(col + ' = ?'); binds.push(h);
     }
     if (typeof b.presence === 'string') {
       if (!['online', 'dnd', 'invisible'].includes(b.presence)) return err('неверный статус');
@@ -362,7 +371,7 @@ export async function handleSocial(c) {
   // --- люди
   if ((mt = p.match(/^\/users\/([^/]+)$/)) && m === 'GET') {
     const u = await env.DB.prepare(
-      'SELECT id, username, created_at, bio, avatar_key, banner, status, status_until, presence, activity, activity_since, last_seen, pinned_post_id FROM users WHERE username = ? AND banned_at IS NULL'
+      'SELECT id, username, created_at, bio, avatar_key, banner, pronouns, link_tg, link_tt, link_ig, status, status_until, presence, activity, activity_since, last_seen, pinned_post_id FROM users WHERE username = ? AND banned_at IS NULL'
     ).bind(decodeURIComponent(mt[1])).first();
     if (!u) return err('пользователь не найден', 404);
     const [fr, fg, isf, close] = await Promise.all([

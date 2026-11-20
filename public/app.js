@@ -41,6 +41,9 @@ const ICONS = {
   send: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   gamepad: '<path d="M6 11h4M8 9v4M15 12h.01M18 10h.01M17.32 5H6.68a4 4 0 0 0-3.98 3.59C2.6 9.42 2 14.46 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.41-1.41A2 2 0 0 1 9.83 16h4.34a2 2 0 0 1 1.42.59L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.55-.6-6.58-.69-7.26A4 4 0 0 0 17.32 5z"/>',
+  soc_tg: '<path d="M21 4 3 11l5 2 2 6 3-4 4 3z"/><path d="m8 13 9-6"/>',
+  soc_tt: '<path d="M14 4v10.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M14 4c.3 2.2 1.8 3.7 4 4"/>',
+  soc_ig: '<rect x="4" y="4" width="16" height="16" rx="5"/><circle cx="12" cy="12" r="3.6"/><circle cx="17" cy="7" r=".6"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
   headphones: '<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>',
   headoff: '<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3M4 4l16 16"/>',
@@ -500,7 +503,9 @@ async function toggleVoiceNote() {
   setTimeout(() => { if (rec === r) r.stop(); }, 120000);
 }
 // фон баннера: цвет (#hex) или загруженная картинка (m_…)
-const bannerBg = (b, name) => (b && /^m_/.test(b) ? `url(${fileUrl(b)}) center/cover no-repeat` : (b || colorOf(name)));
+const bannerBg = (b, name) => (b && /^m_/.test(b) ? `url(${fileUrl(b)}) center/cover no-repeat` : b && /^g:/.test(b) ? `linear-gradient(135deg,${b.slice(2).split(',')[0]},${b.slice(2).split(',')[1]})` : (b || colorOf(name)));
+const SOC = { tg: ['Telegram', (h) => `https://t.me/${h}`], tt: ['TikTok', (h) => `https://www.tiktok.com/@${h}`], ig: ['Instagram', (h) => `https://instagram.com/${h}`] };
+const socialLinks = (u) => ['tg', 'tt', 'ig'].filter((k) => u['link_' + k]).map((k) => `<a class="soc" href="${SOC[k][1](esc(u['link_' + k]))}" target="_blank" rel="noopener noreferrer" title="${SOC[k][0]}">${ic('soc_' + k)}<span>${esc(u['link_' + k])}</span></a>`).join('');
 async function prepareImage(file, kind) {
   if (!/^image\/(jpeg|png|gif|webp)$/.test(file.type)) throw new Error('Нужна картинка JPG, PNG, GIF или WebP');
   const head = new Uint8Array(await file.slice(0, 256).arrayBuffer());

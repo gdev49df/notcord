@@ -1,0 +1,4 @@
+ALTER TABLE users ADD COLUMN pronouns TEXT;
+ALTER TABLE users ADD COLUMN link_tg TEXT;
+ALTER TABLE users ADD COLUMN link_tt TEXT;
+ALTER TABLE users ADD COLUMN link_ig TEXT;

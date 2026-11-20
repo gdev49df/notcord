@@ -55,6 +55,9 @@ function shell({ head, tabs, start }) {
   return ctx;
 }
 
+const NEON = ['#39ff14', '#00e5ff', '#ff2bd6', '#fffb00', '#ff3131', '#7c4dff', '#ff9100', '#00ffa3'];
+const PASTEL = ['#ffd1dc', '#c7ceea', '#b5ead7', '#fdfd96', '#ffdac1', '#e2f0cb', '#cdb4f6', '#a8d8ea'];
+const GRADS = ['g:#ff512f,#dd2476', 'g:#4776e6,#8e54e9', 'g:#00c6ff,#0072ff', 'g:#11998e,#38ef7d', 'g:#f7971e,#ffd200', 'g:#ee0979,#ff6a00', 'g:#232526,#6b6b6b', 'g:#fc00ff,#00dbde'];
 const SX_COLORS = ['#000000', '#3a3a3a', '#8a8a8a', '#e8e8e8', '#e5484d', '#f76b15', '#f5c518', '#30a46c', '#0091ff', '#6e56cf', '#e93d82'];
 const avHtml = (name, key, size) => `<div class="avatar ${imgOk(key) ? 'img' : ''}" style="background:${colorOf(name)};width:${size}px;height:${size}px;font-size:${size * 0.45}px">${imgOk(key) ? `<img src="${fileUrl(key)}" alt="">` : esc(name[0]?.toUpperCase() || '?')}</div>`;
 const field = (label, inner, hint) => `<div class="sx-f"><label class="sx-l">${label}</label>${inner}${hint ? `<div class="muted small">${hint}</div>` : ''}</div>`;
@@ -64,9 +67,9 @@ const toggleRow = (id, title, sub, on) => `<label class="set-row"><div class="gr
 async function settingsModal(start) {
   try { S.user = { ...S.user, ...(await api('/me')).user }; } catch {}
   const u = S.user;
-  const card = (name, key, banner, status, bio) => `<div class="pcard"><div class="pc-banner" style="background:${bannerBg(banner, name)}"></div>
+  const card = (name, key, banner, status, bio, x = {}) => `<div class="pcard"><div class="pc-banner" style="background:${bannerBg(banner, name)}"></div>
     <div class="pc-av">${avHtml(name, key, 84)}</div>
-    <div class="pc-body"><div class="pc-name">${esc(name)}</div>${status ? `<div class="pc-status">${esc(status)}</div>` : ''}
+    <div class="pc-body"><div class="pc-name">${esc(name)}${x.pronouns ? ` <span class="pron">${esc(x.pronouns)}</span>` : ''}</div>${socialLinks(x) ? `<div class="soc-row">${socialLinks(x)}</div>` : ''}${status ? `<div class="pc-status">${esc(status)}</div>` : ''}
     ${bio ? `<div class="pc-sep"></div><div class="pc-h">О себе</div><div class="pc-bio">${esc(bio)}</div>` : ''}</div></div>`;
 
   shell({
@@ -88,13 +91,16 @@ async function settingsModal(start) {
         box.querySelector('#ch-pass').onclick = () => accountModal('pass');
       } },
       { id: 'profile', label: 'Профиль', render: (box, ctx) => {
-        const orig = { bio: u.bio || '', status: u.status || '', banner: u.banner || '', key: u.avatar_key || '', presence: u.presence || 'online', activity: u.activity || '', ttl: '0' };
+        const orig = { bio: u.bio || '', status: u.status || '', banner: u.banner || '', key: u.avatar_key || '', presence: u.presence || 'online', activity: u.activity || '', ttl: '0', pronouns: u.pronouns || '', link_tg: u.link_tg || '', link_tt: u.link_tt || '', link_ig: u.link_ig || '' };
         const cur = { ...orig };
-        const prev = () => card(u.username, cur.key, cur.banner, cur.status, cur.bio);
+        const prev = () => card(u.username, cur.key, cur.banner, cur.status, cur.bio, { pronouns: cur.pronouns, link_tg: cur.link_tg, link_tt: cur.link_tt, link_ig: cur.link_ig });
         box.innerHTML = `<h2>Профиль</h2><div class="sx-two"><div class="sx-form">
           ${field('Аватар', `<div class="sx-av-row"><button id="av-pick">Загрузить</button><button class="ghost" id="av-del">Убрать</button></div><div class="muted small">JPG, PNG, GIF или WebP. Анимация — до 1,4 МБ.</div><input type="file" id="av-in" class="hidden" accept="image/jpeg,image/png,image/gif,image/webp">`)}
           ${field('Баннер', `<div class="sx-av-row"><button id="bn-pick">Загрузить картинку</button><button class="ghost" id="bn-del">Убрать</button></div><div class="muted small">JPG, PNG, GIF или WebP, лучше широкая. Без картинки используется цвет ниже.</div><input type="file" id="bn-in" class="hidden" accept="image/jpeg,image/png,image/gif,image/webp">`)}
-          ${field('Цвет баннера', `<div class="sx-sw" id="sw">${SX_COLORS.map((c) => `<button type="button" class="sw" data-c="${c}" style="background:${c}" aria-label="${c}"></button>`).join('')}<label class="sw custom" title="Свой цвет"><input type="color" id="sw-in" value="${/^#/.test(cur.banner) ? cur.banner : '#3a3a3a'}">${ic('edit')}</label><button type="button" class="ghost mini" id="sw-reset">По умолчанию</button></div>`)}
+          ${field('Цвет профиля', `<div id="sw">${[['Обычные', SX_COLORS], ['Неоновые', NEON], ['Пастельные', PASTEL], ['Градиенты', GRADS]].map(([t, list]) => `<div class="sw-group"><div class="muted">${t}</div><div class="sx-sw">${list.map((c) => `<button type="button" class="sw" data-c="${c}" style="background:${bannerBg(c)}" aria-label="${c}"></button>`).join('')}</div></div>`).join('')}
+            <div class="sw-group"><div class="muted">Свой цвет</div><div class="sw-grad"><label class="sw custom" title="Цвет"><input type="color" id="sw-in" value="${/^#/.test(cur.banner) ? cur.banner : '#3a3a3a'}">${ic('edit')}</label>${window.EyeDropper ? '<button type="button" class="ghost mini" id="sw-drop">Пипетка</button>' : ''}<span class="muted small">или градиент:</span><input type="color" id="g1" value="#ff4d8d"><input type="color" id="g2" value="#4d6bff"><button type="button" class="ghost mini" id="g-go">Применить</button><button type="button" class="ghost mini" id="sw-reset">По умолчанию</button></div></div></div>`)}
+          ${field('Местоимения', '<input id="pf-pron" maxlength="20" placeholder="например, она/её">')}
+          ${field('Ссылки', `<div class="soc-edit">${[['link_tg', 'Telegram', '@ник или t.me/…'], ['link_tt', 'TikTok', '@ник или tiktok.com/@…'], ['link_ig', 'Instagram', '@ник или instagram.com/…']].map(([k, n, ph]) => `<div class="st-row"><span class="soc-n">${ic('soc_' + k.slice(5))} ${n}</span><input data-lk="${k}" maxlength="80" placeholder="${ph}"></div>`).join('')}</div>`)}
           ${field('Статус в сети', `<div class="st-row" id="pres">${[['online', 'Онлайн'], ['dnd', 'Занят'], ['invisible', 'Невидимка']].map(([k, n]) => `<button type="button" class="ghost pres-b" data-p="${k}"><i class="pdot ${k}"></i> ${n}</button>`).join('')}</div><div class="muted small">«Занят» отключает звуки и уведомления. «Невидимка» скрывает тебя из сети.</div>`)}
           ${field('Текстовый статус', `<input id="pf-status" maxlength="80" placeholder="Чем сейчас занят?"><div class="st-emoji" id="st-emoji">${['😀', '😴', '🎮', '💻', '📚', '🎧', '🍕', '🔥'].map((e) => `<button type="button" data-e="${e}">${e}</button>`).join('')}</div><div class="st-row" style="margin-top:8px"><span class="muted small">Очистить через</span><select id="pf-ttl"><option value="0">Не очищать</option><option value="60">1 час</option><option value="240">4 часа</option><option value="1440">24 часа</option></select></div>`)}
           ${field('Играет в…', '<input id="pf-act" maxlength="40" placeholder="Название игры">', 'Показывается в карточке и в «Активных контактах».')}
@@ -102,24 +108,27 @@ async function settingsModal(start) {
           <div class="error" id="m-err"></div></div>
           <div class="sx-prev"><div class="sx-l">Предпросмотр</div><div id="pv">${prev()}</div></div></div>`;
         const $$ = (s) => box.querySelector(s);
-        $$('#pf-status').value = cur.status; $$('#pf-bio').value = cur.bio; $$('#pf-act').value = cur.activity;
+        $$('#pf-status').value = cur.status; $$('#pf-bio').value = cur.bio; $$('#pf-act').value = cur.activity; $$('#pf-pron').value = cur.pronouns; box.querySelectorAll('[data-lk]').forEach((i) => (i.value = cur[i.dataset.lk]));
         const sync = () => {
           $$('#pv').innerHTML = prev();
           $$('#pf-cnt').textContent = `${cur.bio.length} / 200`;
           box.querySelectorAll('.sw[data-c]').forEach((b) => b.classList.toggle('on', b.dataset.c.toLowerCase() === (cur.banner || '').toLowerCase()));
           box.querySelectorAll('.pres-b').forEach((b) => b.classList.toggle('on', b.dataset.p === cur.presence));
-          const changed = ['bio', 'status', 'banner', 'key', 'presence', 'activity', 'ttl'].some((k) => cur[k] !== orig[k]);
+          const changed = ['bio', 'status', 'banner', 'key', 'presence', 'activity', 'ttl', 'pronouns', 'link_tg', 'link_tt', 'link_ig'].some((k) => cur[k] !== orig[k]);
           if (changed) ctx.dirty(save, reset); else ctx.clean();
         };
-        const reset = () => { Object.assign(cur, orig); $$('#pf-status').value = cur.status; $$('#pf-bio').value = cur.bio; $$('#pf-act').value = cur.activity; $$('#pf-ttl').value = cur.ttl; sync(); };
+        const reset = () => { Object.assign(cur, orig); $$('#pf-status').value = cur.status; $$('#pf-bio').value = cur.bio; $$('#pf-act').value = cur.activity; $$('#pf-ttl').value = cur.ttl; $$('#pf-pron').value = cur.pronouns; box.querySelectorAll('[data-lk]').forEach((i) => (i.value = cur[i.dataset.lk])); sync(); };
         const save = async () => {
           try {
-            const body = { bio: cur.bio, banner: cur.banner, presence: cur.presence, activity: cur.activity };
+            const body = { bio: cur.bio, banner: cur.banner, presence: cur.presence, activity: cur.activity, pronouns: cur.pronouns, link_tg: cur.link_tg, link_tt: cur.link_tt, link_ig: cur.link_ig };
             if (cur.status !== orig.status || cur.ttl !== orig.ttl) { body.status = cur.status; body.status_ttl = Number(cur.ttl); }
             if (cur.key !== orig.key) body.avatar_key = cur.key;
             await api('/profile', { method: 'PATCH', body });
-            Object.assign(S.user, { bio: cur.bio, status: cur.status, banner: cur.banner || null, avatar_key: cur.key || null, presence: cur.presence, activity: cur.activity || null });
+            Object.assign(S.user, { bio: cur.bio, status: cur.status, banner: cur.banner || null, avatar_key: cur.key || null, presence: cur.presence, activity: cur.activity || null, pronouns: cur.pronouns || null, link_tg: cur.link_tg || null, link_tt: cur.link_tt || null, link_ig: cur.link_ig || null });
             A[S.user.username] = S.user.avatar_key;
+            try { Object.assign(S.user, (await api('/me')).user); } catch {}
+            Object.assign(cur, { link_tg: S.user.link_tg || '', link_tt: S.user.link_tt || '', link_ig: S.user.link_ig || '' });
+            box.querySelectorAll('[data-lk]').forEach((i) => (i.value = cur[i.dataset.lk]));
             Object.assign(u, S.user); Object.assign(orig, cur);
             renderMe(); ctx.clean(); toast('Профиль сохранён');
             if (S.view.profile === S.user.username) openProfile(S.user.username);
@@ -142,6 +151,10 @@ async function settingsModal(start) {
         $$('#pf-ttl').onchange = (e) => { cur.ttl = e.target.value; sync(); };
         $$('#pf-act').oninput = (e) => { cur.activity = e.target.value; sync(); };
         $$('#st-emoji').onclick = (e) => { const b = e.target.closest('[data-e]'); if (!b) return; const i = $$('#pf-status'); i.value = (b.dataset.e + ' ' + i.value.replace(/^\p{Extended_Pictographic}\s*/u, '')).slice(0, 80); cur.status = i.value; sync(); };
+        $$('#pf-pron').oninput = (e) => { cur.pronouns = e.target.value; sync(); };
+        box.querySelectorAll('[data-lk]').forEach((i) => (i.oninput = () => { cur[i.dataset.lk] = i.value; sync(); }));
+        $$('#g-go').onclick = () => { cur.banner = `g:${$$('#g1').value},${$$('#g2').value}`; sync(); };
+        $$('#sw-drop')?.addEventListener('click', async () => { try { const r = await new EyeDropper().open(); cur.banner = r.sRGBHex; sync(); } catch {} });
         $$('#bn-pick').onclick = () => $$('#bn-in').click();
         $$('#bn-del').onclick = () => { if (/^m_/.test(cur.banner)) cur.banner = ''; sync(); };
         $$('#bn-in').onchange = async (e) => {

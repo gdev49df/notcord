@@ -728,3 +728,10 @@ button.sx-tab.danger:hover{background:color-mix(in srgb,var(--red) 14%,transpare
 .st-row{display:flex;gap:8px;align-items:center}.st-row select{width:auto}
 .pres-b{padding:8px 14px}.pres-b.on{outline:2px solid var(--text)}
 .pdot{width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
+.pron{font-size:13px;font-weight:500;color:var(--muted);margin-left:6px}
+.soc-row{display:flex;flex-wrap:wrap;gap:6px;padding:0 2px}
+.soc{display:inline-flex;align-items:center;gap:6px;background:var(--raise);color:var(--text);padding:5px 10px;border-radius:10px;font-size:13px;font-weight:600;text-decoration:none}
+.soc .i{width:15px;height:15px}.soc:hover{background:var(--line)}
+.sw-group{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}.sw-group>.muted{font-size:12px}
+.sw-grad{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.sw-grad input[type=color]{width:42px;height:32px;padding:0;border-radius:8px}
+.soc-edit{display:flex;flex-direction:column;gap:8px}.soc-n{display:inline-flex;align-items:center;gap:6px;width:112px;flex:none;font-size:13px;font-weight:600}.soc-n .i{width:16px;height:16px}

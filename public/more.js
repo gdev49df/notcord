@@ -27,11 +27,12 @@ async function userCard(username, anchor) {
   el.innerHTML = `<div class="uc-banner" style="background:${bannerBg(u.banner, u.username)}"></div>
     <div class="uc-av">${avatar(u.username, 84, ps({ online: d.online, presence: u.presence }))}</div>
     <div class="uc-body">
-      <div class="uc-name">${esc(u.username)}</div>
+      <div class="uc-name">${esc(u.username)}${u.pronouns ? ` <span class="pron">${esc(u.pronouns)}</span>` : ''}</div>
       <div class="uc-sub">${{ online: 'В сети', dnd: 'Занят', invisible: 'Невидимка', offline: 'Не в сети' }[d.online || d.is_me ? (u.presence || 'online') : 'offline']}</div>
       ${u.status ? `<div class="uc-status-t">${esc(u.status)}</div>` : ''}
       ${u.activity ? `<div class="uc-act">${ic('gamepad')}<span>Играет в <b>${esc(u.activity)}</b></span></div>` : ''}
       ${roles.length ? `<div class="uc-roles">${roles.map((r) => `<span class="role-chip"><i style="background:${r.color || 'var(--muted)'}"></i>${esc(r.name)}</span>`).join('')}</div>` : ''}
+      ${socialLinks(u) ? `<div class="soc-row">${socialLinks(u)}</div>` : ''}
       <div class="uc-box"><div class="uc-box-t">О себе</div>${u.bio ? `<div class="uc-bio">${linkify(u.bio, true)}</div>` : '<div class="muted small">Пока ничего</div>'}
         <div class="muted small uc-meta"><span id="uc-fol">${d.followers}</span> подписчиков • с нами с ${joined}</div></div>
       <div class="uc-box uc-menu">
