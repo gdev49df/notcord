@@ -76,6 +76,7 @@ const ICONS = {
   stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   users: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.4-3.2 2.6-5 5.5-5s5.1 1.8 5.5 5M16 5.6a3.2 3.2 0 0 1 0 5.8M17.5 14.3c1.9.5 3 2.1 3.3 4.7"/>',
+  lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
 const ic = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
@@ -209,11 +210,11 @@ function renderRail() {
   const on = (c) => (c ? 'on' : '');
   const bell = S.important ? badge(S.important, true) : S.notif ? '<span class="badge dot"></span>' : '';
   r.innerHTML =
-    `<div class="ic ${on(S.view.type === 'feed' && S.view.page !== 'notif')}" data-act="feed" title="лента">${ic('globe')}</div>` +
-    `<div class="ic ${on(S.view.page === 'notif')}" data-act="notif" title="уведомления">${ic('bell')}${bell}</div>` +
-    `<div class="ic ${on(S.view.type === 'home')}" data-act="home" title="личные сообщения">${ic('chat')}${badge(dmUnread, true)}</div><div class="sep"></div>` +
-    S.servers.map((s) => `<div class="ic ${on(S.view.type === 'server' && S.server?.server.id === s.id)}" data-sid="${s.id}" title="${esc(s.name)}">${esc(s.name.slice(0, 2))}${badge(S.srvUnread[s.id])}</div>`).join('') +
-    `<div class="ic add" data-act="add" title="создать, присоединиться, каталог">${ic('plus')}</div>`;
+    `<div class="ic ${on(S.view.type === 'feed' && S.view.page !== 'notif')}" data-act="feed" data-tip="Лента">${ic('globe')}</div>` +
+    `<div class="ic ${on(S.view.page === 'notif')}" data-act="notif" data-tip="Уведомления">${ic('bell')}${bell}</div>` +
+    `<div class="ic ${on(S.view.type === 'home')}" data-act="home" data-tip="Личные сообщения">${ic('chat')}${badge(dmUnread, true)}</div><div class="sep"></div>` +
+    S.servers.map((s) => `<div class="ic ${on(S.view.type === 'server' && S.server?.server.id === s.id)}" data-sid="${s.id}" data-tip="${esc(s.name)}">${esc(s.name.slice(0, 2))}${badge(S.srvUnread[s.id])}</div>`).join('') +
+    `<div class="ic add" data-act="add" data-tip="Добавить сервер">${ic('plus')}</div>`;
   r.onclick = (e) => {
     const t = e.target.closest('.ic');
     if (!t) return;
@@ -362,7 +363,7 @@ function renderServerSide() {
     await api(`/servers/${server.id}`, { method: 'DELETE' }); await loadServers(); openHome();
   };
   const group = (type, title) => `<div class="cat"><span>${title}</span>${canCh ? `<button data-add="${type}" title="Создать канал" aria-label="Создать канал">${ic('plus')}</button>` : ''}</div>` +
-    channels.filter((c) => c.type === type).map((c) => `<div class="item ${S.channel?.id === c.id ? 'on' : ''}" data-ch="${c.id}">${ic(type === 'text' ? 'hash' : 'speaker')} <span class="grow">${esc(c.name)}</span>${canCh ? `<button class="icon-btn ch-gear" data-gear="${c.id}" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}${badge(S.unread[c.id])}</div>` +
+    channels.filter((c) => c.type === type).map((c) => `<div class="item ${S.channel?.id === c.id ? 'on' : ''}" data-ch="${c.id}">${ic(c.is_private ? 'lock' : type === 'text' ? 'hash' : 'speaker')} <span class="grow">${esc(c.name)}</span>${canCh ? `<button class="icon-btn ch-gear" data-gear="${c.id}" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}${badge(S.unread[c.id])}</div>` +
       (type === 'voice' ? `<div class="voice-users" id="vu-${c.id}">${(S.voiceUsers[c.id] || []).map((n) => `<div>• ${esc(n)}</div>`).join('')}</div>` : '')).join('');
   $('#side-list').innerHTML = `<div class="item ${S.serverFeed ? 'on' : ''}" data-sfeed="1">${ic('globe')} <span class="grow">лента сервера</span></div>` + group('text', 'текстовые каналы') + group('voice', 'голосовые каналы');
   $('#side-list').onclick = (e) => {
@@ -405,7 +406,7 @@ function openChannel(ch) {
   if (S.unread[ch.id]) { delete S.unread[ch.id]; recountUnread?.(); }
   if (S.view.type === 'server') renderServerSide(); else renderHomeSide();
   renderRail();
-  $('#main-head').innerHTML = `${burger()}<span class="muted">${ch.type === 'dm' ? '@' : ic('hash')}</span> <span>${esc(ch.name)}</span>${ch.topic ? `<span class="ch-topic grow" title="${esc(ch.topic)}">${esc(ch.topic)}</span>` : '<span class="grow"></span>'}${ch.slowmode ? `<span class="muted small slow-tag" title="Медленный режим">${ic('clock')} ${slowLabel(ch.slowmode)}</span>` : ''}${S.view.type === 'server' && can(PERM.CHANNELS) ? `<button class="icon-btn" id="ch-set" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}${S.view.type === 'server' ? `<button class="icon-btn ${S.prefs.hideMembers ? '' : 'on'}" id="mem-tg" title="${S.prefs.hideMembers ? 'Показать участников' : 'Скрыть участников'}" aria-label="Список участников" aria-pressed="${!S.prefs.hideMembers}">${ic('users')}</button>` : ''}<button class="icon-btn" id="pins" title="Закреплённые" aria-label="Закреплённые">${ic('pin')}</button>`;
+  $('#main-head').innerHTML = `${burger()}<span class="muted">${ch.type === 'dm' ? '@' : ic(ch.is_private ? 'lock' : 'hash')}</span> <span>${esc(ch.name)}</span>${ch.topic ? `<span class="ch-topic grow" title="${esc(ch.topic)}">${esc(ch.topic)}</span>` : '<span class="grow"></span>'}${ch.slowmode ? `<span class="muted small slow-tag" title="Медленный режим">${ic('clock')} ${slowLabel(ch.slowmode)}</span>` : ''}${S.view.type === 'server' && can(PERM.CHANNELS) ? `<button class="icon-btn" id="ch-set" title="Настройки канала" aria-label="Настройки канала">${ic('settings')}</button>` : ''}${S.view.type === 'server' ? `<button class="icon-btn ${S.prefs.hideMembers ? '' : 'on'}" id="mem-tg" title="${S.prefs.hideMembers ? 'Показать участников' : 'Скрыть участников'}" aria-label="Список участников" aria-pressed="${!S.prefs.hideMembers}">${ic('users')}</button>` : ''}<button class="icon-btn" id="pins" title="Закреплённые" aria-label="Закреплённые">${ic('pin')}</button>`;
   $('#main-head').onclick = (e) => { burgerClick(e); if (e.target.closest('#pins')) pinsModal(); if (e.target.closest('#ch-set')) channelSettings(ch); if (e.target.closest('#mem-tg')) toggleMembers(); };
   const v = $('#view');
   v.onclick = null;
@@ -830,3 +831,21 @@ function mosaicResolve(host, duration = 1100) {
   img.onerror = () => {};
   img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(src);
 }
+
+// ---- подсказки у иконок слева (как в Discord)
+(() => {
+  let tip;
+  document.addEventListener('mouseover', (e) => {
+    const t = e.target.closest?.('#rail [data-tip]');
+    if (!t) { tip?.remove(); tip = null; return; }
+    if (tip?._for === t) return;
+    tip?.remove();
+    tip = document.createElement('div');
+    tip.className = 'tip'; tip.textContent = t.dataset.tip; tip._for = t;
+    document.body.appendChild(tip);
+    const r = t.getBoundingClientRect();
+    tip.style.left = r.right + 12 + 'px';
+    tip.style.top = r.top + r.height / 2 - tip.offsetHeight / 2 + 'px';
+  });
+  document.addEventListener('mouseleave', () => { tip?.remove(); tip = null; }, true);
+})();

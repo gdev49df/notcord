@@ -50,7 +50,15 @@ async function channelAccess(env, userId, channelId) {
   }
   const m = await env.DB.prepare('SELECT 1 x FROM members WHERE server_id=? AND user_id=?')
     .bind(ch.server_id, userId).first();
-  return m ? ch : null;
+  if (!m) return null;
+  if (ch.is_private) {
+    if ((await permsOf(env, userId, ch.server_id)) & P.CHANNELS) return ch;
+    const ok = await env.DB.prepare(
+      'SELECT 1 x FROM channel_roles cr JOIN member_roles mr ON mr.role_id = cr.role_id WHERE cr.channel_id=? AND mr.user_id=? AND mr.server_id=?'
+    ).bind(channelId, userId, ch.server_id).first();
+    return ok ? ch : null;
+  }
+  return ch;
 }
 
 const MSG_SELECT = `SELECT m.id, m.channel_id, m.user_id, u.username, u.avatar_key, m.content,
@@ -208,16 +216,22 @@ async function handleApi(req, env, url) {
     if (!mem) return err('нет доступа', 403);
     const s = await env.DB.prepare('SELECT id, name, owner_id, invite, is_public, description FROM servers WHERE id=?').bind(sid).first();
     if (m === 'GET') {
-      const [chs, mems, roles, mroles, myPerms] = await Promise.all([
-        env.DB.prepare('SELECT id, name, type, topic, slowmode FROM channels WHERE server_id=? ORDER BY id').bind(sid).all(),
+      const [chs, mems, roles, mroles, myPerms, chRoles, myChan] = await Promise.all([
+        env.DB.prepare('SELECT id, name, type, topic, slowmode, is_private FROM channels WHERE server_id=? ORDER BY id').bind(sid).all(),
         env.DB.prepare('SELECT u.id, u.username, u.avatar_key, u.last_seen FROM members mm JOIN users u ON u.id=mm.user_id WHERE mm.server_id=? ORDER BY u.username').bind(sid).all(),
         env.DB.prepare('SELECT id, name, color, perms, position FROM roles WHERE server_id=? ORDER BY position, id').bind(sid).all(),
         env.DB.prepare('SELECT mr.user_id, mr.role_id FROM member_roles mr JOIN roles r ON r.id = mr.role_id WHERE mr.server_id=? ORDER BY r.position, r.id').bind(sid).all(),
         permsOf(env, me.id, sid),
+        env.DB.prepare('SELECT cr.channel_id, cr.role_id FROM channel_roles cr JOIN channels c ON c.id = cr.channel_id WHERE c.server_id=?').bind(sid).all(),
+        env.DB.prepare('SELECT cr.channel_id FROM channel_roles cr JOIN member_roles mr ON mr.role_id = cr.role_id WHERE mr.user_id=? AND mr.server_id=?').bind(me.id, sid).all(),
       ]);
+      const allowed = new Set(myChan.results.map((x) => x.channel_id));
+      const visible = chs.results.filter((c) => !c.is_private || (myPerms & P.CHANNELS) || allowed.has(c.id));
+      const crMap = {};
+      for (const x of chRoles.results) (crMap[x.channel_id] ||= []).push(x.role_id);
       const byUser = {};
       for (const x of mroles.results) (byUser[x.user_id] ||= []).push(x.role_id);
-      return json({ server: s, channels: chs.results, roles: roles.results, my_perms: myPerms,
+      return json({ server: s, channels: visible.map((c) => ({ ...c, is_private: !!c.is_private, role_ids: (myPerms & P.CHANNELS) ? (crMap[c.id] || []) : undefined })), roles: roles.results, my_perms: myPerms,
         members: mems.results.map(({ last_seen, ...u }) => ({ ...u, role_ids: byUser[u.id] || [], online: isOnline(last_seen) })) });
     }
     if (m === 'PATCH') {
@@ -252,12 +266,12 @@ async function handleApi(req, env, url) {
   if ((mt = p.match(/^\/servers\/(\d+)\/channels$/)) && m === 'POST') {
     const sid = Number(mt[1]);
     if (!((await permsOf(env, me.id, sid)) & P.CHANNELS)) return err('недостаточно прав', 403);
-    const { name, type } = await req.json();
+    const { name, type, is_private } = await req.json();
     const n = (name || '').trim().toLowerCase().replace(/\s+/g, '-').slice(0, 30);
     if (!n) return err('введи название');
     const t = type === 'voice' ? 'voice' : 'text';
-    const r = await env.DB.prepare('INSERT INTO channels (server_id, name, type, created_at) VALUES (?,?,?,?)')
-      .bind(sid, n, t, now).run();
+    const r = await env.DB.prepare('INSERT INTO channels (server_id, name, type, created_at, is_private) VALUES (?,?,?,?,?)')
+      .bind(sid, n, t, now, is_private ? 1 : 0).run();
     await audit(env, sid, me.id, 'channel_create', (t === 'voice' ? '🔊 ' : '# ') + n, now);
     return json({ id: r.meta.last_row_id });
   }
@@ -273,6 +287,7 @@ async function handleApi(req, env, url) {
         env.DB.prepare('DELETE FROM message_reactions WHERE message_id IN (SELECT id FROM messages WHERE channel_id=?)').bind(cid),
         env.DB.prepare("DELETE FROM notifications WHERE channel_id=?").bind(cid),
         env.DB.prepare('DELETE FROM channel_reads WHERE channel_id=?').bind(cid),
+        env.DB.prepare('DELETE FROM channel_roles WHERE channel_id=?').bind(cid),
         env.DB.prepare('DELETE FROM messages WHERE channel_id=?').bind(cid),
         env.DB.prepare('DELETE FROM channels WHERE id=?').bind(cid),
       ]);
@@ -291,8 +306,17 @@ async function handleApi(req, env, url) {
       const v = Math.max(0, Math.min(21600, Number(b.slowmode) || 0));
       sets.push('slowmode = ?'); binds.push(v);
     }
-    if (!sets.length) return err('нечего менять');
-    await env.DB.prepare(`UPDATE channels SET ${sets.join(', ')} WHERE id=?`).bind(...binds, cid).run();
+    if (b.is_private !== undefined) { sets.push('is_private = ?'); binds.push(b.is_private ? 1 : 0); }
+    const extra = [];
+    if (Array.isArray(b.roles)) {
+      const { results } = await env.DB.prepare('SELECT id FROM roles WHERE server_id=?').bind(ch.server_id).all();
+      const ok = new Set(results.map((r) => r.id));
+      extra.push(env.DB.prepare('DELETE FROM channel_roles WHERE channel_id=?').bind(cid));
+      for (const id of [...new Set(b.roles.map(Number))]) if (ok.has(id)) extra.push(env.DB.prepare('INSERT INTO channel_roles (channel_id, role_id) VALUES (?,?)').bind(cid, id));
+    }
+    if (!sets.length && !extra.length) return err('нечего менять');
+    if (sets.length) await env.DB.prepare(`UPDATE channels SET ${sets.join(', ')} WHERE id=?`).bind(...binds, cid).run();
+    if (extra.length) await env.DB.batch(extra);
     await audit(env, ch.server_id, me.id, 'channel_edit', typeof b.name === 'string' ? b.name.trim() : ch.name, now);
     return json({ ok: true });
   }

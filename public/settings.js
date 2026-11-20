@@ -205,6 +205,7 @@ function channelModal(type = 'text') {
     ${opt('voice', 'speaker', 'Голосовой', 'Голос и демонстрация экрана')}
     <div class="sx-l">Название канала</div>
     <div class="prefix-in"><span id="ct-pre">${ic(type === 'voice' ? 'speaker' : 'hash')}</span><input id="m-name" placeholder="новый-канал" maxlength="30"></div>
+    <label class="set-row"><div class="grow"><b>Приватный канал</b><div class="muted small">Видят только выбранные роли и модераторы</div></div><input type="checkbox" id="ct-priv"></label>
     <div class="error" id="m-err"></div>
     <div class="modal-actions"><button class="ghost" id="m-cancel">Отмена</button><button id="m-ok">Создать канал</button></div>`, (c) => {
     c.querySelector('#m-cancel').onclick = closeModal;
@@ -212,7 +213,7 @@ function channelModal(type = 'text') {
     const go = async () => {
       try {
         const t = c.querySelector('[name=ct]:checked').value;
-        const r = await api(`/servers/${S.server.server.id}/channels`, { body: { name: c.querySelector('#m-name').value, type: t } });
+        const r = await api(`/servers/${S.server.server.id}/channels`, { body: { name: c.querySelector('#m-name').value, type: t, is_private: c.querySelector('#ct-priv').checked } });
         closeModal(); await openServer(S.server.server.id, t === 'text' ? r.id : S.channel?.id);
       } catch (e) { c.querySelector('#m-err').textContent = e.message; }
     };
@@ -265,6 +266,25 @@ function channelSettings(ch) {
           $$('#cs-slow').oninput = (e) => { cur.slow = Number(e.target.value); sync(); };
         }
         sync(); ctx.clean();
+      } },
+      { id: 'access', label: 'Права доступа', render: (box, ctx) => {
+        const orig = { priv: !!ch.is_private, roles: [...(ch.role_ids || [])].sort() };
+        const cur = { priv: orig.priv, roles: [...orig.roles] };
+        const roles = S.server.roles;
+        const draw = () => {
+          box.innerHTML = `<h2>Права доступа</h2>
+            <label class="set-row"><div class="grow"><b>Приватный канал</b><div class="muted small">Видят только владелец, модераторы с управлением каналами и выбранные роли</div></div><input type="checkbox" id="ac-priv" ${cur.priv ? 'checked' : ''}></label>
+            ${cur.priv ? `<div class="sx-l">Роли с доступом</div>${roles.length ? `<div class="role-pick" style="padding:0">${roles.map((r) => `<button class="rp ${cur.roles.includes(r.id) ? 'on' : ''}" data-rp="${r.id}"><i style="background:${r.color || 'var(--muted)'}"></i>${esc(r.name)}</button>`).join('')}</div>` : '<div class="muted small">Сначала создай роли в настройках сервера — доступ выдаётся ролям.</div>'}` : ''}
+            <div class="error" id="m-err"></div>`;
+          box.querySelector('#ac-priv').onchange = (e) => { cur.priv = e.target.checked; draw(); sync(); };
+          box.querySelectorAll('[data-rp]').forEach((b) => b.onclick = () => { const id = Number(b.dataset.rp); cur.roles = cur.roles.includes(id) ? cur.roles.filter((x) => x !== id) : [...cur.roles, id]; draw(); sync(); });
+        };
+        const sync = () => { if (cur.priv !== orig.priv || JSON.stringify([...cur.roles].sort()) !== JSON.stringify(orig.roles)) ctx.dirty(save, () => { Object.assign(cur, { priv: orig.priv, roles: [...orig.roles] }); draw(); ctx.clean(); }); else ctx.clean(); };
+        const save = async () => {
+          try { await api(`/channels/${ch.id}`, { method: 'PATCH', body: { is_private: cur.priv, roles: cur.roles } }); ctx.clean(); toast('Доступ сохранён'); closeShell(true); await openServer(sid, ch.id); }
+          catch (er) { box.querySelector('#m-err').textContent = er.message; }
+        };
+        draw(); ctx.clean();
       } },
       { sep: true },
       { id: 'del', label: 'Удалить канал', danger: true, action: (ctx) => {

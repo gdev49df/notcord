@@ -449,10 +449,15 @@ export async function handleSocial(c) {
         `SELECT c.id, c.server_id, COUNT(m.id) AS n FROM channels c
          LEFT JOIN channel_reads r ON r.channel_id = c.id AND r.user_id = ?
          JOIN messages m ON m.channel_id = c.id AND m.id > COALESCE(r.last_id, 0) AND m.user_id != ?
-         WHERE c.server_id IN (SELECT server_id FROM members WHERE user_id = ?)
-            OR c.id IN (SELECT channel_id FROM dm_members WHERE user_id = ?)
+         WHERE (c.server_id IN (SELECT server_id FROM members WHERE user_id = ?)
+            OR c.id IN (SELECT channel_id FROM dm_members WHERE user_id = ?))
+           AND (c.is_private = 0 OR c.is_private IS NULL
+                OR EXISTS (SELECT 1 FROM servers s WHERE s.id = c.server_id AND s.owner_id = ?)
+                OR EXISTS (SELECT 1 FROM member_roles mr JOIN roles r ON r.id = mr.role_id
+                           WHERE mr.user_id = ? AND mr.server_id = c.server_id
+                             AND ((r.perms & 4) != 0 OR r.id IN (SELECT role_id FROM channel_roles WHERE channel_id = c.id))))
          GROUP BY c.id`
-      ).bind(me.id, me.id, me.id, me.id).all(),
+      ).bind(me.id, me.id, me.id, me.id, me.id, me.id).all(),
     ]);
     const map = {}, srv = {}, dms = {};
     for (const r of unread.results) {

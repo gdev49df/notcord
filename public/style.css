@@ -585,3 +585,6 @@ button.sx-tab.danger:hover{background:color-mix(in srgb,var(--red) 14%,transpare
 .composer{border-radius:8px}
 .slow-note{align-self:flex-end;margin:0 20px 4px;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px}.slow-note .i{width:13px;height:13px}
 @media(max-width:700px){.side{border-radius:0}}
+
+.tip{position:fixed;z-index:20;background:var(--raise);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px 12px;font-weight:600;font-size:14px;pointer-events:none;white-space:nowrap;box-shadow:0 8px 24px #0006;animation:fade .12s}
+.tip::before{content:"";position:absolute;left:-5px;top:50%;width:8px;height:8px;background:inherit;border-left:1px solid var(--line);border-bottom:1px solid var(--line);transform:translateY(-50%) rotate(45deg)}
